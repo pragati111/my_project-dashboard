@@ -38,11 +38,11 @@ const navConfig = [
     path: '/products',
     icon: icon('ic_cart'),
   },
-  {
-    title: 'Vendor List',
-    path: '/VendorList',
-    icon: icon('ic_cart'),
-  },
+  // {
+  //   title: 'Vendor List',
+  //   path: '/VendorList',
+  //   icon: icon('ic_cart'),
+  // },
   {
     title: 'Order',
     path: '/order',
