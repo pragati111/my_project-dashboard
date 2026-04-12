@@ -5,7 +5,6 @@ import axios from "axios";
 import { Formik, Form } from "formik";
 import React, { useState, useEffect } from "react";
 import {
-  Alert,
   Box,
   Button,
   Card,
@@ -16,23 +15,15 @@ import {
   Typography,
   Chip,
 } from "@mui/material";
-import {
-  getBanner,
-createBanner,
-  
-} from "src/services/BannerService";
+import { getBanner, createBanner } from "src/services/BannerService";
 
-// const BANNER_API_URL = "https://backend.minutos.shop/api/ads";
-const CLOUDINARY_UPLOAD_PRESET = "marketdata";
-const CLOUDINARY_CLOUD_NAME = "dk4ha77nw";
+const CLOUDINARY_UPLOAD_PRESET = "market_data";
+const CLOUDINARY_CLOUD_NAME = "drq4o4qix";
 
-// Red button styles
 const redButtonStyle = {
-  bgcolor: '#dc2626',
-  color: 'white',
-  '&:hover': {
-    bgcolor: '#b91c1c',
-  },
+  bgcolor: "#dc2626",
+  color: "white",
+  "&:hover": { bgcolor: "#b91c1c" },
 };
 
 // ----------------------------------------------------------
@@ -44,7 +35,6 @@ export const UploadArea = ({
   onUpload,
   hasImage,
   imageUrl,
-  multiple = false,
   isEmpty = true,
   isUploading,
 }) => (
@@ -57,12 +47,7 @@ export const UploadArea = ({
     }}
   >
     <CardContent
-      sx={{
-        height: "100%",
-        display: "flex",
-        flexDirection: "column",
-        position: "relative",
-      }}
+      sx={{ height: "100%", display: "flex", flexDirection: "column", position: "relative" }}
     >
       {/* Header */}
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 2 }}>
@@ -92,7 +77,14 @@ export const UploadArea = ({
             </Typography>
           </Box>
         </Box>
-        {isEmpty && <Chip label="Empty" size="small" sx={{ color: "#6b7280", borderColor: "#d1d5db" }} variant="outlined" />}
+        {isEmpty && (
+          <Chip
+            label="Empty"
+            size="small"
+            sx={{ color: "#6b7280", borderColor: "#d1d5db" }}
+            variant="outlined"
+          />
+        )}
       </Box>
 
       {/* Upload Area */}
@@ -114,13 +106,7 @@ export const UploadArea = ({
           <img
             src={imageUrl}
             alt={title}
-            style={{
-              width: "100%",
-              height: "100%",
-              objectFit: "cover",
-              borderRadius: 8,
-              maxHeight: 200,
-            }}
+            style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 8, maxHeight: 200 }}
           />
         ) : (
           <Box sx={{ textAlign: "center" }}>
@@ -164,7 +150,7 @@ export const UploadArea = ({
           }}
         >
           {hasImage && imageUrl ? "Change" : "Upload"}
-          <input type="file" accept="image/*" hidden multiple={multiple} onChange={onUpload} />
+          <input type="file" accept="image/*" hidden onChange={onUpload} />
         </Button>
       </Box>
     </CardContent>
@@ -180,31 +166,23 @@ export default function BannerManager() {
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
 
-  // Fetch banner
   const fetchBanner = async () => {
-  setLoading(true);
-  try {
-    const res = await getBanner();
-
-    // ✅ res already contains { success, banner }
-    setBanner(res.banner || null);
-  } catch (error) {
-    console.error("Error fetching banner:", error);
-    setSnackbar({
-      open: true,
-      message: "Error fetching banner",
-      severity: "error",
-    });
-  } finally {
-    setLoading(false);
-  }
-};
+    setLoading(true);
+    try {
+      const res = await getBanner();
+      setBanner(res.banner || null);
+    } catch (error) {
+      console.error("Error fetching banner:", error);
+      setSnackbar({ open: true, message: "Error fetching banner", severity: "error" });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     fetchBanner();
   }, []);
 
-  // Upload to Cloudinary
   const uploadImageToCloudinary = async (file) => {
     const formData = new FormData();
     formData.append("file", file);
@@ -218,30 +196,16 @@ export default function BannerManager() {
     return response.data.secure_url;
   };
 
-  // Save banners
-  
-const handleSubmit = async (values) => {
-  try {
-    // values = banner form data
-    await createBanner(values);
-
-    setSnackbar({
-      open: true,
-      message: "✅ Banner saved successfully",
-      severity: "success",
-    });
-
-    fetchBanner(); // refresh banners list
-  } catch (error) {
-    console.error("Error saving banner:", error);
-
-    setSnackbar({
-      open: true,
-      message: "❌ Error saving banner",
-      severity: "error",
-    });
-  }
-};
+  const handleSubmit = async (values) => {
+    try {
+      await createBanner(values);
+      setSnackbar({ open: true, message: "✅ Banner saved successfully", severity: "success" });
+      fetchBanner();
+    } catch (error) {
+      console.error("Error saving banner:", error);
+      setSnackbar({ open: true, message: "❌ Error saving banner", severity: "error" });
+    }
+  };
 
   return (
     <Box sx={{ p: 4, backgroundColor: "#ffffff", minHeight: "100vh" }}>
@@ -251,7 +215,7 @@ const handleSubmit = async (values) => {
           Banner Management
         </Typography>
         <Typography variant="body1" color="text.secondary">
-          Manage your homepage and advertisement banners
+          Manage your homepage banner
         </Typography>
       </Box>
 
@@ -263,30 +227,19 @@ const handleSubmit = async (values) => {
         <Formik
           initialValues={{
             homeBanner1: banner?.homeBanner1 || "",
-            advertiseBanners: banner?.advertiseBanners || [],
-            homeBanner2: banner?.homeBanner2 || "",
-            homeBanner3: banner?.homeBanner3 || "",
-            homeBanner4: banner?.homeBanner4 || "",
           }}
           enableReinitialize
           onSubmit={handleSubmit}
         >
           {({ setFieldValue, values }) => {
-            const handleImageUpload = async (event, fieldName, multiple = false) => {
+            const handleImageUpload = async (event) => {
               const { files } = event.target;
               if (!files.length) return;
 
               setUploading(true);
               try {
-                if (multiple) {
-                  const urls = await Promise.all(
-                    Array.from(files).map((file) => uploadImageToCloudinary(file))
-                  );
-                  setFieldValue(fieldName, [...(values[fieldName] || []), ...urls]);
-                } else {
-                  const url = await uploadImageToCloudinary(files[0]);
-                  setFieldValue(fieldName, url);
-                }
+                const url = await uploadImageToCloudinary(files[0]);
+                setFieldValue("homeBanner1", url);
                 setSnackbar({ open: true, message: "Image uploaded successfully", severity: "success" });
               } catch {
                 setSnackbar({ open: true, message: "Error uploading image", severity: "error" });
@@ -295,185 +248,19 @@ const handleSubmit = async (values) => {
               }
             };
 
-            const removeAdvertiseBanner = (index) => {
-              setFieldValue(
-                "advertiseBanners",
-                values.advertiseBanners.filter((_, i) => i !== index)
-              );
-            };
-
             return (
               <Form>
-                <Grid container spacing={3}>
-                  {[1, 2, 3, 4].map((n) => (
-                    <Grid item xs={12} md={6} key={n}>
-                      <UploadArea
-                        title={`Home Banner ${n}`}
-                        subtitle="Main page banner"
-                        hasImage={!!values[`homeBanner${n}`]}
-                        imageUrl={values[`homeBanner${n}`]}
-                        isEmpty={!values[`homeBanner${n}`]}
-                        onUpload={(e) => handleImageUpload(e, `homeBanner${n}`)}
-                        isUploading={uploading}
-                      />
-                    </Grid>
-                  ))}
-
-                  {/* Advertisement banners */}
-                  <Grid item xs={12}>
-                    <Card
-                      sx={{
-                        border: "2px dashed #e5e7eb",
-                        backgroundColor: "#fff",
-                        boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-                      }}
-                    >
-                      <CardContent>
-                        <Box
-                          sx={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "flex-start",
-                            mb: 3,
-                          }}
-                        >
-                          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                            <Box
-                              sx={{
-                                backgroundColor: "#f3f4f6",
-                                borderRadius: 1,
-                                p: 0.5,
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                width: 28,
-                                height: 28,
-                                color: "#6b7280",
-                                fontWeight: "bold",
-                                fontSize: 10,
-                              }}
-                            >
-                              ADS
-                            </Box>
-                            <Box>
-                              <Typography variant="subtitle1" fontWeight="600" color="#1f2937">
-                                Advertisement Banners
-                              </Typography>
-                              <Typography variant="body2" color="text.secondary">
-                                Multiple promotional banners
-                              </Typography>
-                            </Box>
-                          </Box>
-                          <Chip
-                            label={`${values.advertiseBanners?.length || 0} banners`}
-                            size="small"
-                            sx={{ color: "#6b7280", borderColor: "#d1d5db" }}
-                            variant="outlined"
-                          />
-                        </Box>
-
-                        <Box
-                          sx={{
-                            minHeight: 250,
-                            border: "2px dashed #e5e7eb",
-                            borderRadius: 2,
-                            backgroundColor: "#f9fafb",
-                            p: 3,
-                            position: "relative",
-                          }}
-                        >
-                          {values.advertiseBanners?.length ? (
-                            <Grid container spacing={2}>
-                              {values.advertiseBanners.map((url, idx) => (
-                                <Grid item xs={6} sm={4} md={3} key={idx}>
-                                  <Box sx={{ position: "relative" }}>
-                                    <img
-                                      src={url}
-                                      alt={`Advertisement ${idx + 1}`}
-                                      style={{
-                                        width: "100%",
-                                        height: 120,
-                                        objectFit: "cover",
-                                        borderRadius: 8,
-                                      }}
-                                    />
-                                    <Button
-                                      size="small"
-                                      variant="contained"
-                                      color="error"
-                                      sx={{
-                                        position: "absolute",
-                                        top: 4,
-                                        right: 4,
-                                        minWidth: 24,
-                                        width: 24,
-                                        height: 24,
-                                        borderRadius: "50%",
-                                        fontSize: 12,
-                                        fontWeight: "bold",
-                                        p: 0,
-                                      }}
-                                      onClick={() => removeAdvertiseBanner(idx)}
-                                    >
-                                      ✕
-                                    </Button>
-                                  </Box>
-                                </Grid>
-                              ))}
-                            </Grid>
-                          ) : (
-                            <Box sx={{ textAlign: "center" }}>
-                              <Box
-                                sx={{
-                                  fontSize: 40,
-                                  color: "#9ca3af",
-                                  mb: 1,
-                                  backgroundColor: "#f3f4f6",
-                                  borderRadius: "50%",
-                                  width: 60,
-                                  height: 60,
-                                  display: "flex",
-                                  alignItems: "center",
-                                  justifyContent: "center",
-                                  mx: "auto",
-                                  fontWeight: "bold",
-                                }}
-                              >
-                                ↑
-                              </Box>
-                              <Typography variant="h6" color="#374151" gutterBottom>
-                                Upload Advertisement Banners
-                              </Typography>
-                              <Typography variant="body2" color="text.secondary">
-                                Select multiple images for advertisement banners
-                              </Typography>
-                            </Box>
-                          )}
-
-                          <Button
-                            component="label"
-                            variant="contained"
-                            disabled={uploading}
-                            sx={{
-                              ...redButtonStyle,
-                              position: values.advertiseBanners?.length ? "absolute" : "static",
-                              bottom: values.advertiseBanners?.length ? 16 : "auto",
-                              right: values.advertiseBanners?.length ? 16 : "auto",
-                              mt: values.advertiseBanners?.length ? 0 : 2,
-                            }}
-                          >
-                            {values.advertiseBanners?.length ? "Add More" : "Upload Multiple"}
-                            <input
-                              type="file"
-                              accept="image/*"
-                              hidden
-                              multiple
-                              onChange={(e) => handleImageUpload(e, "advertiseBanners", true)}
-                            />
-                          </Button>
-                        </Box>
-                      </CardContent>
-                    </Card>
+                <Grid container spacing={3} justifyContent="center">
+                  <Grid item xs={12} md={12}>
+                    <UploadArea
+                      title="Home Banner"
+                      subtitle="Main page banner"
+                      hasImage={!!values.homeBanner1}
+                      imageUrl={values.homeBanner1}
+                      isEmpty={!values.homeBanner1}
+                      onUpload={handleImageUpload}
+                      isUploading={uploading}
+                    />
                   </Grid>
                 </Grid>
 
@@ -484,11 +271,7 @@ const handleSubmit = async (values) => {
                     variant="contained"
                     size="large"
                     disabled={uploading}
-                    sx={{
-                      ...redButtonStyle,
-                      px: 4,
-                      py: 1.5,
-                    }}
+                    sx={{ ...redButtonStyle, px: 4, py: 1.5 }}
                   >
                     {uploading ? (
                       <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
@@ -496,7 +279,7 @@ const handleSubmit = async (values) => {
                         Uploading...
                       </Box>
                     ) : (
-                      "Save All Banners"
+                      "Save Banner"
                     )}
                   </Button>
                 </Box>

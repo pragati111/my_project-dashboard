@@ -42,7 +42,7 @@ const navConfig = [
   //   title: 'Vendor List',
   //   path: '/VendorList',
   //   icon: icon('ic_cart'),
-  // },
+  // },npm
   {
     title: 'Order',
     path: '/order',

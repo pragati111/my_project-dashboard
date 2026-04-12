@@ -121,7 +121,6 @@ export function bgGradient(props) {
   };
 }
 
-
 // ----------------------------------------------------------------------
 
 export function textGradient(value = 'to right, #ff0000, #ffffff') {
