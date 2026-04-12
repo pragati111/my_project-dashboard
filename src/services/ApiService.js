@@ -1,6 +1,6 @@
 // services/analyticsService.js
 
-const API_BASE_URL = 'https://api.minutos.in/api';
+const API_BASE_URL = 'https://my-project-backend-ee4t.onrender.com/api';
 
 export const analyticsService = {
   getAnalyticsCounts: async () => {

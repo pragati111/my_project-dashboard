@@ -37,8 +37,8 @@ import {
 } from "src/services/categoryService";
 
 // Cloudinary configuration
-const CLOUDINARY_UPLOAD_PRESET = "marketdata";
-const CLOUDINARY_CLOUD_NAME = "dk4ha77nw";
+const CLOUDINARY_UPLOAD_PRESET = "market_data";
+const CLOUDINARY_CLOUD_NAME = "drq4o4qix";
 
 export default function Category() {
   const [categories, setCategories] = useState([]);

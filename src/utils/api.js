@@ -4,7 +4,7 @@ import axios from 'axios';
 import { getToken } from './auth';
 
 const api = axios.create({
-  baseURL: 'https://my-project-backend-ee4t.onrender.com/', // HARD-CODED URL
+  baseURL: 'http://localhost:8000/', // HARD-CODED URL
   headers: { 'Content-Type': 'application/json' },
 });
 
