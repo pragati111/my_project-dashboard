@@ -183,7 +183,6 @@ function CustomizationBuilder({ customizations, setFieldValue }) {
               </TextField>
             </Grid>
 
-            {/* Required & Multiple flags */}
             <Grid item xs={6}>
               <FormControlLabel
                 control={<Switch checked={c.required || false} onChange={(e) => update(i, "required", e.target.checked)} color="error" />}
@@ -197,7 +196,6 @@ function CustomizationBuilder({ customizations, setFieldValue }) {
               />
             </Grid>
 
-            {/* Placeholder — for text/textarea/file */}
             {["text", "textarea"].includes(c.type) && (
               <Grid item xs={12}>
                 <TextField
@@ -210,7 +208,6 @@ function CustomizationBuilder({ customizations, setFieldValue }) {
               </Grid>
             )}
 
-            {/* Options — for radio/checkbox/dropdown */}
             {["radio", "checkbox", "dropdown"].includes(c.type) && (
               <Grid item xs={12}>
                 <Box display="flex" alignItems="center" gap={1} mb={1}>
@@ -236,7 +233,6 @@ function CustomizationBuilder({ customizations, setFieldValue }) {
               </Grid>
             )}
 
-            {/* File upload for file type */}
             {c.type === "file" && (
               <Grid item xs={12}>
                 <Typography variant="body2" color="text.secondary" gutterBottom>Uploaded Files</Typography>
@@ -269,7 +265,6 @@ function CustomizationBuilder({ customizations, setFieldValue }) {
               </Grid>
             )}
 
-            {/* Value input for non-file fields */}
             {c.type !== "file" && c.type !== "radio" && c.type !== "checkbox" && c.type !== "dropdown" && (
               <Grid item xs={12}>
                 <TextField
@@ -282,7 +277,6 @@ function CustomizationBuilder({ customizations, setFieldValue }) {
               </Grid>
             )}
 
-            {/* ShowIf condition */}
             <Grid item xs={12}>
               <Typography variant="caption" color="text.secondary">
                 Show this field only if (optional):
@@ -363,8 +357,10 @@ function SpecificationsBuilder({ specifications, setFieldValue }) {
   );
 }
 
-// ─── Offers Builder ───────────────────────────────────────────────────────────
-function OffersBuilder({ offers, setFieldValue }) {
+// ─── Offers Builder with Comma-Separated Input ───────────────────────────────
+function OffersBuilder({ offers, setFieldValue, showSnackbar }) {
+  const [bulkOfferText, setBulkOfferText] = useState("");
+  
   const add = () => setFieldValue("offers", [...offers, { ...emptyOffer }]);
   const remove = (i) => setFieldValue("offers", offers.filter((_, idx) => idx !== i));
   const update = (i, key, value) => {
@@ -374,27 +370,122 @@ function OffersBuilder({ offers, setFieldValue }) {
     setFieldValue("offers", updated);
   };
 
+  const handleBulkAdd = () => {
+    if (!bulkOfferText.trim()) {
+      if (showSnackbar) showSnackbar("Please enter at least one offer", "warning");
+      return;
+    }
+    
+    const offerTitles = bulkOfferText.split(',').map(item => item.trim()).filter(item => item);
+    
+    if (offerTitles.length === 0) {
+      if (showSnackbar) showSnackbar("No valid offers found", "warning");
+      return;
+    }
+    
+    const newOffers = offerTitles.map(title => ({
+      title: title,
+      code: title.toLowerCase().replace(/[^a-z0-9]/g, '_').substring(0, 30),
+      discountPercent: 0,
+      active: true,
+      expiryDate: ""
+    }));
+    
+    setFieldValue("offers", [...offers, ...newOffers]);
+    setBulkOfferText("");
+    if (showSnackbar) showSnackbar(`✅ Added ${newOffers.length} offer(s) successfully`);
+  };
+
   return (
     <Paper sx={{ p: 3, mb: 3 }}>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
         <Typography variant="h6" color="black">Offers</Typography>
         <Button startIcon={<MdAdd />} onClick={add} size="small" variant="outlined" sx={redOutlinedButtonStyle}>
-          Add Offer
+          Add Individual Offer
         </Button>
       </Box>
+
+      <Paper variant="outlined" sx={{ p: 2, mb: 3, bgcolor: "#fef3c7", borderColor: "#f59e0b" }}>
+        <Typography variant="subtitle2" color="#d97706" gutterBottom sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          <span>🎯</span> Quick Add: What's the Offer? (Comma Separated)
+        </Typography>
+        <Box display="flex" gap={2} alignItems="flex-start">
+          <TextField
+            label="e.g., Buy 1 Get 1, 20% Off, Free Shipping, Summer Sale"
+            fullWidth
+            size="small"
+            multiline
+            rows={2}
+            value={bulkOfferText}
+            onChange={(e) => setBulkOfferText(e.target.value)}
+            placeholder="Enter multiple offers separated by commas"
+            helperText="💡 Separate multiple offers with commas. Each offer will be added as a separate entry."
+            sx={{ bgcolor: "white" }}
+          />
+          <Button
+            variant="contained"
+            onClick={handleBulkAdd}
+            disabled={!bulkOfferText.trim()}
+            sx={{ ...redButtonStyle, minWidth: "120px", height: "56px" }}
+          >
+            Add All Offers
+          </Button>
+        </Box>
+      </Paper>
+
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+        <Typography variant="subtitle2" color="text.secondary">
+          📋 Individual Offers ({offers.length})
+        </Typography>
+        {offers.length > 0 && (
+          <Button 
+            size="small" 
+            color="error" 
+            onClick={() => setFieldValue("offers", [])}
+            sx={{ textTransform: "none" }}
+          >
+            Clear All
+          </Button>
+        )}
+      </Box>
+      
+      {offers.length === 0 && (
+        <Typography variant="body2" color="text.secondary" textAlign="center" py={3}>
+          No offers added yet. Use the "Quick Add" above to add multiple offers at once,<br />
+          or click "Add Individual Offer" to add one by one.
+        </Typography>
+      )}
+      
       {offers.map((offer, i) => (
-        <Paper key={i} variant="outlined" sx={{ p: 2, mb: 2 }}>
-          <Box display="flex" justifyContent="flex-end">
-            <IconButton color="error" onClick={() => remove(i)}>
+        <Paper key={i} variant="outlined" sx={{ p: 2, mb: 2, position: "relative" }}>
+          <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+            <Typography variant="subtitle2" color="#dc2626">Offer #{i + 1}</Typography>
+            <IconButton size="small" color="error" onClick={() => remove(i)}>
               <MdDelete />
             </IconButton>
           </Box>
           <Grid container spacing={2}>
-            <Grid item xs={6}>
-              <TextField label="Title" fullWidth size="small" value={offer.title} onChange={(e) => update(i, "title", e.target.value)} />
+            <Grid item xs={12}>
+              <TextField
+                label="What's the Offer? *"
+                fullWidth
+                size="small"
+                value={offer.title}
+                onChange={(e) => update(i, "title", e.target.value)}
+                placeholder="e.g., Buy 1 Get 1 Free"
+                helperText="Main offer description shown to customers"
+              />
             </Grid>
             <Grid item xs={6}>
-              <TextField label="Code" fullWidth size="small" value={offer.code} onChange={(e) => update(i, "code", e.target.value)} />
+              <TextField
+                label="Offer Code"
+                fullWidth
+                size="small"
+                value={offer.code}
+                onChange={(e) => update(i, "code", e.target.value)}
+                placeholder="e.g., BOGO20"
+                helperText="Unique code for this offer"
+              />
             </Grid>
             <Grid item xs={6}>
               <TextField
@@ -403,11 +494,12 @@ function OffersBuilder({ offers, setFieldValue }) {
                 fullWidth
                 size="small"
                 value={offer.discountPercent}
-                onChange={(e) => update(i, "discountPercent", parseFloat(e.target.value))}
-                inputProps={{ min: 0, max: 100 }}
+                onChange={(e) => update(i, "discountPercent", parseFloat(e.target.value) || 0)}
+                inputProps={{ min: 0, max: 100, step: 1 }}
+                helperText="0-100% discount"
               />
             </Grid>
-            <Grid item xs={6}>
+            <Grid item xs={12}>
               <TextField
                 label="Expiry Date"
                 type="date"
@@ -416,6 +508,7 @@ function OffersBuilder({ offers, setFieldValue }) {
                 InputLabelProps={{ shrink: true }}
                 value={offer.expiryDate?.split('T')[0] || ""}
                 onChange={(e) => update(i, "expiryDate", e.target.value)}
+                helperText="Optional: Leave empty for no expiry"
               />
             </Grid>
             <Grid item xs={12}>
@@ -604,7 +697,6 @@ export default function ProductData() {
     setSubmitting(true);
     setLoading(true);
     try {
-      // Prepare data for submission
       const submitData = {
         ...values,
         price: parseFloat(values.price),
@@ -789,15 +881,64 @@ export default function ProductData() {
                       />
                     </Grid>
 
-                    {/* Tags */}
+                    {/* Tags - Fixed Chip Input */}
                     <Grid item xs={12}>
-                      <TextField
-                        name="tags"
-                        label="Tags (comma separated)"
-                        fullWidth
-                        value={values.tags.join(", ")}
-                        onChange={(e) => setFieldValue("tags", e.target.value.split(",").map(t => t.trim()).filter(t => t))}
-                        helperText="e.g., premium, new, bestseller"
+                      <Typography variant="subtitle2" gutterBottom sx={{ color: "#374151", fontWeight: 500 }}>
+                        Tags
+                      </Typography>
+                      <Autocomplete
+                        multiple
+                        freeSolo
+                        options={[]}
+                        value={values.tags || []}
+                        onChange={(event, newValue) => {
+                          setFieldValue("tags", newValue);
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key === ',' && event.target.value) {
+                            event.preventDefault();
+                            const newTag = event.target.value.replace(',', '').trim();
+                            if (newTag && !values.tags.includes(newTag)) {
+                              setFieldValue("tags", [...values.tags, newTag]);
+                              event.target.value = '';
+                            }
+                          }
+                          if (event.key === 'Enter' && event.target.value) {
+                            event.preventDefault();
+                            const newTag = event.target.value.trim();
+                            if (newTag && !values.tags.includes(newTag)) {
+                              setFieldValue("tags", [...values.tags, newTag]);
+                              event.target.value = '';
+                            }
+                          }
+                        }}
+                        renderTags={(value, getTagProps) =>
+                          value.map((option, index) => (
+                            <Chip
+                              key={index}
+                              label={option}
+                              {...getTagProps({ index })}
+                              size="small"
+                              sx={{ 
+                                bgcolor: "#fee2e2", 
+                                color: "#dc2626", 
+                                borderColor: "#dc2626",
+                                '& .MuiChip-deleteIcon': {
+                                  color: "#dc2626",
+                                  '&:hover': { color: "#b91c1c" }
+                                }
+                              }}
+                            />
+                          ))
+                        }
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            variant="outlined"
+                            placeholder="Type a tag and press Enter"
+                            helperText="Press Enter after each tag to add it. Click ✕ to remove."
+                          />
+                        )}
                       />
                     </Grid>
 
@@ -888,6 +1029,7 @@ export default function ProductData() {
                 <OffersBuilder
                   offers={values.offers}
                   setFieldValue={setFieldValue}
+                  showSnackbar={showSnackbar}
                 />
               </Grid>
 
