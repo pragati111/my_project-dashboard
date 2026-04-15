@@ -48,16 +48,16 @@ const navConfig = [
     path: '/order',
     icon: icon('ic_blog'),
   },
-  // {
-  //   title: 'blog',
-  //   path: '/blog',
-  //   icon: icon('ic_blog'),
-  // },
-  // {
-  //   title: 'login',
-  //   path: '/login',
-  //   icon: icon('ic_lock'),
-  // },
+  {
+    title: 'Complaint',
+    path: '/blog',
+    icon: icon('ic_blog'),
+  },
+  {
+    title: 'HomePageSetting',
+    path: '/setting',
+    icon: icon('ic_lock'),
+  },
   // {
   //   title: 'Not found',
   //   path: '/404',

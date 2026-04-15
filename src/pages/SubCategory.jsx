@@ -29,11 +29,16 @@ import {
   InputLabel,
   FormControl,
   Alert,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
 } from "@mui/material";
 import CSVUploaderSub from "./SubCategoryCSv";
 import {
   getCategories,
-  } from "src/services/categoryService";
+} from "src/services/categoryService";
 import {
   getSubCategories,
   createSubcategory,
@@ -53,6 +58,8 @@ export default function SubCategory() {
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [subToDelete, setSubToDelete] = useState(null);
 
   // Pagination
   const [page, setPage] = useState(1);
@@ -63,7 +70,6 @@ export default function SubCategory() {
     try {
       const data = await getCategories();
       console.log("Categories data:", data);
-      // Service returns res.data directly, so data.categories contains the array
       setCategories(data.categories || []);
     } catch (error) {
       console.error("Error fetching categories:", error);
@@ -77,7 +83,6 @@ export default function SubCategory() {
     try {
       const data = await getSubCategories();
       console.log("Subcategories data:", data);
-      // Service returns res.data directly, so data.subcategories contains the array
       setSubcategories(data.subcategories || []);
     } catch (error) {
       console.error("Error fetching subcategories:", error);
@@ -116,12 +121,12 @@ export default function SubCategory() {
     if (!file) return;
 
     if (!file.type.startsWith("image/")) {
-      setSnackbar({ open: true, message: "Invalid file type", severity: "error" });
+      setSnackbar({ open: true, message: "Invalid file type. Please upload an image.", severity: "error" });
       return;
     }
 
     if (file.size > 5 * 1024 * 1024) {
-      setSnackbar({ open: true, message: "File too large (max 5MB)", severity: "error" });
+      setSnackbar({ open: true, message: "File too large. Maximum size is 5MB.", severity: "error" });
       return;
     }
 
@@ -131,20 +136,33 @@ export default function SubCategory() {
       setFieldValue("image", imageUrl);
       setSnackbar({ open: true, message: "Image uploaded successfully", severity: "success" });
     } catch (error) {
-      setSnackbar({ open: true, message: error.message, severity: "error" });
+      setSnackbar({ open: true, message: error.message || "Failed to upload image", severity: "error" });
     } finally {
       setUploading(false);
     }
   };
 
-  // Submit (Add/Update) - FIXED: Using service functions
+  // Submit (Add/Update)
   const handleSubmit = async (values, { resetForm }) => {
+    // Validate required fields
+    if (!values.name || !values.category) {
+      setSnackbar({ open: true, message: "Name and category are required", severity: "error" });
+      return;
+    }
+
     try {
+      const submitData = {
+        name: values.name,
+        category: values.category,
+        image: values.image || "",
+        section: values.section || "", // Add section if needed
+      };
+
       if (editingSub) {
-        await updateSubcategory(editingSub._id, values);
+        await updateSubcategory(editingSub._id, submitData);
         setSnackbar({ open: true, message: "Subcategory updated successfully", severity: "success" });
       } else {
-        await createSubcategory(values);
+        await createSubcategory(submitData);
         setSnackbar({ open: true, message: "Subcategory added successfully", severity: "success" });
       }
       resetForm();
@@ -154,27 +172,41 @@ export default function SubCategory() {
       console.error("Error saving subcategory:", error);
       setSnackbar({ 
         open: true, 
-        message: error.response?.data?.message || "Error saving subcategory", 
+        message: error.response?.data?.message || error.message || "Error saving subcategory", 
         severity: "error" 
       });
     }
   };
 
-  // Delete - FIXED: Using service function
-  const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this subcategory?")) return;
+  // Delete - with confirmation dialog
+  const handleDeleteClick = (id) => {
+    setSubToDelete(id);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!subToDelete) return;
+    
     try {
-      await deleteSubcategory(id);
+      await deleteSubcategory(subToDelete);
       setSnackbar({ open: true, message: "Subcategory deleted successfully", severity: "success" });
       fetchSubcategories();
     } catch (error) {
       console.error("Error deleting subcategory:", error);
       setSnackbar({ 
         open: true, 
-        message: error.response?.data?.message || "Error deleting subcategory", 
+        message: error.response?.data?.message || error.message || "Error deleting subcategory", 
         severity: "error" 
       });
+    } finally {
+      setDeleteDialogOpen(false);
+      setSubToDelete(null);
     }
+  };
+
+  const handleCancelDelete = () => {
+    setDeleteDialogOpen(false);
+    setSubToDelete(null);
   };
 
   // Pagination
@@ -189,6 +221,11 @@ export default function SubCategory() {
 
   // Apply pagination
   const paginatedSubs = filteredSubs.slice((page - 1) * rowsPerPage, page * rowsPerPage);
+
+  // Reset pagination when search changes
+  useEffect(() => {
+    setPage(1);
+  }, [searchQuery]);
 
   // Red button styles
   const redButtonStyle = {
@@ -220,10 +257,10 @@ export default function SubCategory() {
         <Alert severity="info" sx={{ mt: 2, borderRadius: 2 }}>
           <Typography variant="body2">
             💡 You can upload multiple subcategories at once using a CSV file.  
-            Make sure your CSV includes columns like <b>Name</b>, <b>Category</b>, and <b>Image URL</b>.  
+            Make sure your CSV includes columns: <b>name</b>, <b>category</b>, <b>image</b>, and <b>section</b> (optional).  
             <br />
             Example:  
-            <code>Subcategory Name, Category, Image URL</code>
+            <code>Electronics, Mobile Phones, https://example.com/image.jpg, Electronics</code>
           </Typography>
         </Alert>
       </Box>
@@ -234,6 +271,7 @@ export default function SubCategory() {
           name: editingSub?.name || "",
           category: editingSub?.category?._id || "",
           image: editingSub?.image || "",
+          section: editingSub?.section || "",
         }}
         enableReinitialize
         onSubmit={handleSubmit}
@@ -244,7 +282,7 @@ export default function SubCategory() {
           return errors;
         }}
       >
-        {({ resetForm, setFieldValue, values, errors, touched }) => (
+        {({ resetForm, setFieldValue, values, errors, touched, isSubmitting }) => (
           <Form style={{ marginBottom: "2rem" }}>
             <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mb: 2 }}>
               <Field 
@@ -252,13 +290,14 @@ export default function SubCategory() {
                 name="name" 
                 label="Subcategory Name" 
                 fullWidth 
+                required
                 error={touched.name && Boolean(errors.name)}
                 helperText={touched.name && errors.name}
               />
 
-              <FormControl fullWidth error={touched.category && Boolean(errors.category)}>
+              <FormControl fullWidth required error={touched.category && Boolean(errors.category)}>
                 <InputLabel>Category</InputLabel>
-                <Field as={Select} name="category" value={values.category}>
+                <Field as={Select} name="category" label="Category">
                   <MenuItem value="">
                     <em>Select a category</em>
                   </MenuItem>
@@ -275,7 +314,22 @@ export default function SubCategory() {
                 )}
               </FormControl>
 
-              <Field as={TextField} name="image" label="Image URL" fullWidth />
+              <Field 
+                as={TextField} 
+                name="section" 
+                label="Section (optional)" 
+                fullWidth 
+                helperText="e.g., Electronics, Fashion, Grocery"
+              />
+
+              <Field 
+                as={TextField} 
+                name="image" 
+                label="Image URL" 
+                fullWidth 
+                helperText="Enter image URL or upload below"
+              />
+              
               <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
                 <Button 
                   component="label" 
@@ -307,7 +361,8 @@ export default function SubCategory() {
                       border: "1px solid #e0e0e0"
                     }}
                     onError={(e) => {
-                      e.target.style.display = "none";
+                      e.target.onerror = null;
+                      e.target.src = "https://via.placeholder.com/100?text=Invalid+URL";
                     }}
                   />
                 </Box>
@@ -317,15 +372,20 @@ export default function SubCategory() {
                 <Button 
                   type="submit" 
                   variant="contained" 
-                  disabled={uploading}
+                  disabled={uploading || isSubmitting}
                   sx={redButtonStyle}
                 >
-                  {editingSub ? "Update Subcategory" : "Add Subcategory"}
+                  {isSubmitting ? (
+                    <CircularProgress size={24} color="inherit" />
+                  ) : editingSub ? (
+                    "Update Subcategory"
+                  ) : (
+                    "Add Subcategory"
+                  )}
                 </Button>
                 {editingSub && (
                   <Button
                     variant="outlined"
-                    color="secondary"
                     onClick={() => {
                       setEditingSub(null);
                       resetForm();
@@ -348,10 +408,7 @@ export default function SubCategory() {
           variant="outlined"
           fullWidth
           value={searchQuery}
-          onChange={(e) => {
-            setSearchQuery(e.target.value);
-            setPage(1);
-          }}
+          onChange={(e) => setSearchQuery(e.target.value)}
           placeholder="Search by name or category..."
         />
       </Box>
@@ -369,6 +426,7 @@ export default function SubCategory() {
                 <TableRow>
                   <TableCell><b>Name</b></TableCell>
                   <TableCell><b>Category</b></TableCell>
+                  <TableCell><b>Section</b></TableCell>
                   <TableCell><b>Image</b></TableCell>
                   <TableCell><b>Actions</b></TableCell>
                 </TableRow>
@@ -379,6 +437,7 @@ export default function SubCategory() {
                     <TableRow key={sub._id} hover>
                       <TableCell>{sub.name}</TableCell>
                       <TableCell>{sub.category?.name || "N/A"}</TableCell>
+                      <TableCell>{sub.section || "—"}</TableCell>
                       <TableCell>
                         {sub.image ? (
                           <img
@@ -392,6 +451,7 @@ export default function SubCategory() {
                               border: "1px solid #e0e0e0"
                             }}
                             onError={(e) => {
+                              e.target.onerror = null;
                               e.target.src = "https://via.placeholder.com/80?text=No+Image";
                             }}
                           />
@@ -416,14 +476,17 @@ export default function SubCategory() {
                       <TableCell>
                         <IconButton 
                           color="primary" 
-                          onClick={() => setEditingSub(sub)}
+                          onClick={() => {
+                            setEditingSub(sub);
+                            setPage(1);
+                          }}
                           title="Edit"
                         >
                           <MdEdit />
                         </IconButton>
                         <IconButton 
                           color="error" 
-                          onClick={() => handleDelete(sub._id)}
+                          onClick={() => handleDeleteClick(sub._id)}
                           title="Delete"
                         >
                           <MdDelete />
@@ -433,7 +496,7 @@ export default function SubCategory() {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={4} align="center">
+                    <TableCell colSpan={5} align="center">
                       <Typography variant="body1" color="textSecondary" sx={{ py: 3 }}>
                         {searchQuery 
                           ? "No subcategories found matching your search" 
@@ -460,16 +523,40 @@ export default function SubCategory() {
         </>
       )}
 
+      {/* Delete Confirmation Dialog */}
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={handleCancelDelete}
+      >
+        <DialogTitle>Confirm Delete</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Are you sure you want to delete this subcategory? This action cannot be undone.
+            {subToDelete && <br />}
+            {subToDelete && <strong>Note: This will also affect products associated with this subcategory.</strong>}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCancelDelete} color="primary">
+            Cancel
+          </Button>
+          <Button onClick={handleConfirmDelete} color="error" variant="contained">
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       {/* Snackbar */}
       <Snackbar
         open={snackbar.open}
-        autoHideDuration={3000}
+        autoHideDuration={4000}
         onClose={() => setSnackbar({ ...snackbar, open: false })}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
       >
         <Alert 
           onClose={() => setSnackbar({ ...snackbar, open: false })} 
           severity={snackbar.severity}
+          variant="filled"
           sx={{ width: '100%' }}
         >
           {snackbar.message}

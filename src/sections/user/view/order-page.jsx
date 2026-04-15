@@ -26,6 +26,11 @@ import Grid from "@mui/material/Grid";
 import Paper from "@mui/material/Paper";
 import IconButton from "@mui/material/IconButton";
 import Tooltip from "@mui/material/Tooltip";
+import MenuItem from "@mui/material/MenuItem";
+import FormControl from "@mui/material/FormControl";
+import Select from "@mui/material/Select";
+import Snackbar from "@mui/material/Snackbar";
+import Alert from "@mui/material/Alert";
 import Scrollbar from "src/components/scrollbar";
 import TableNoData from "../table-no-data";
 import UserTableHead from "../user-table-head";
@@ -40,6 +45,10 @@ const StatusChip = ({ status }) => {
       case "ACCEPTED": return "info";
       case "COMPLETED": return "success";
       case "REJECTED": return "error";
+      case "PROCESSING": return "info";
+      case "SHIPPED": return "primary";
+      case "DELIVERED": return "success";
+      case "CANCELLED": return "error";
       default: return "default";
     }
   };
@@ -99,10 +108,20 @@ const InfoCard = ({ title, icon, children }) => (
 );
 
 /* ---------------- TABLE ROW ---------------- */
-const OrderTableRow = ({ row, selected, handleClick, handleView }) => {
+const OrderTableRow = ({ row, selected, handleClick, handleView, onStatusUpdate }) => {
   const isSelected = selected.indexOf(row._id) !== -1;
+  const [updating, setUpdating] = useState(false);
+  const [currentStatus, setCurrentStatus] = useState(row.status);
+
+  const handleStatusChange = async (event) => {
+    const newStatus = event.target.value;
+    setUpdating(true);
+    await onStatusUpdate(row._id, newStatus, setCurrentStatus);
+    setUpdating(false);
+  };
+
   return (
-    <TableRow hover selected={isSelected} sx={{ cursor: "pointer" }}>
+    <TableRow hover selected={isSelected}>
       <TableCell padding="checkbox">
         <Checkbox checked={isSelected} onChange={(event) => handleClick(event, row._id)} />
       </TableCell>
@@ -141,8 +160,34 @@ const OrderTableRow = ({ row, selected, handleClick, handleView }) => {
         </Box>
       </TableCell>
 
+      {/* ✅ UPDATED: Order Status with dropdown for manual update */}
       <TableCell>
-        <StatusChip status={row.status} />
+        {updating ? (
+          <LinearProgress sx={{ width: 80 }} />
+        ) : (
+          <FormControl size="small" sx={{ minWidth: 120 }}>
+            <Select
+              value={currentStatus}
+              onChange={handleStatusChange}
+              variant="outlined"
+              sx={{
+                '& .MuiSelect-select': {
+                  py: 0.5,
+                  fontSize: '0.875rem',
+                }
+              }}
+            >
+              <MenuItem value="PLACED">PLACED</MenuItem>
+              <MenuItem value="PROCESSING">PROCESSING</MenuItem>
+              <MenuItem value="ACCEPTED">ACCEPTED</MenuItem>
+              <MenuItem value="SHIPPED">SHIPPED</MenuItem>
+              <MenuItem value="DELIVERED">DELIVERED</MenuItem>
+              <MenuItem value="COMPLETED">COMPLETED</MenuItem>
+              <MenuItem value="REJECTED">REJECTED</MenuItem>
+              <MenuItem value="CANCELLED">CANCELLED</MenuItem>
+            </Select>
+          </FormControl>
+        )}
       </TableCell>
       <TableCell>
         <Button size="small" variant="outlined" onClick={() => handleView(row)}>View</Button>
@@ -304,6 +349,271 @@ const AdminInvoice = ({ order }) => {
   );
 };
 
+/* ---------------- DUMMY DATA ---------------- */
+const getDummyOrders = () => {
+  return [
+    {
+      _id: "ORD00123456789",
+      createdAt: "2024-01-15T10:30:00.000Z",
+      updatedAt: "2024-01-16T14:20:00.000Z",
+      status: "DELIVERED",
+      totalAmount: 2499.00,
+      discount: 0,
+      deliveryCharge: 49,
+      paymentMethod: "upi",
+      deliveryType: "Express",
+      estimatedDelivery: "2024-01-18",
+      trackingId: "TRK123456789",
+      courier: "BlueDart",
+      deliveryNotes: "Handle with care",
+      notes: "Please deliver before 5 PM",
+      vendor: {
+        businessName: "PrintMaster Solutions",
+        email: "vendor1@printmaster.com",
+        phone: "+91 9876543210",
+        address: "123 Industrial Area, Delhi"
+      },
+      shippingAddress: {
+        name: "Rajesh Kumar",
+        line1: "45, Green Park Extension",
+        line2: "Near Metro Station",
+        city: "New Delhi",
+        state: "Delhi",
+        pincode: "110016",
+        phone: "+91 9988776655"
+      },
+      items: [
+        {
+          name: "Premium Business Cards",
+          quantity: 2,
+          price: 899.50,
+          sku: "BC-PRM-001",
+          variant: "Matte Finish",
+          image: null
+        },
+        {
+          name: "A4 Brochure Printing",
+          quantity: 1,
+          price: 700.00,
+          sku: "BR-A4-002",
+          variant: "Glossy",
+          image: null
+        }
+      ],
+      payment: {
+        status: "PAID",
+        razorpayPaymentId: "pay_XYZ123456789",
+        razorpayOrderId: "order_ABC987654321",
+        paidAt: "2024-01-15T10:35:00.000Z"
+      }
+    },
+    {
+      _id: "ORD00234567890",
+      createdAt: "2024-01-16T15:45:00.000Z",
+      updatedAt: "2024-01-17T09:15:00.000Z",
+      status: "PROCESSING",
+      totalAmount: 1599.00,
+      discount: 100,
+      deliveryCharge: 0,
+      paymentMethod: "card",
+      deliveryType: "Standard",
+      estimatedDelivery: "2024-01-22",
+      trackingId: "TRK234567890",
+      courier: "DTDC",
+      deliveryNotes: null,
+      notes: "Gift wrapping required",
+      vendor: {
+        businessName: "Creative Prints Hub",
+        email: "vendor2@creativeprints.com",
+        phone: "+91 8765432109",
+        address: "456 Business Park, Mumbai"
+      },
+      shippingAddress: {
+        name: "Priya Sharma",
+        line1: "789, Andheri West",
+        line2: "Near Lokhandwala",
+        city: "Mumbai",
+        state: "Maharashtra",
+        pincode: "400053",
+        phone: "+91 8877665544"
+      },
+      items: [
+        {
+          name: "Custom Stickers Pack",
+          quantity: 50,
+          price: 20.00,
+          sku: "STK-CST-003",
+          variant: "Waterproof",
+          image: null
+        },
+        {
+          name: "Flyer Printing A5",
+          quantity: 100,
+          price: 5.99,
+          sku: "FLY-A5-004",
+          variant: "Uncoated",
+          image: null
+        }
+      ],
+      payment: {
+        status: "PAID",
+        razorpayPaymentId: "pay_DEF456789012",
+        razorpayOrderId: "order_GHI123456789",
+        paidAt: "2024-01-16T15:50:00.000Z"
+      }
+    },
+    {
+      _id: "ORD00345678901",
+      createdAt: "2024-01-17T09:20:00.000Z",
+      updatedAt: "2024-01-17T09:20:00.000Z",
+      status: "PLACED",
+      totalAmount: 3499.00,
+      discount: 200,
+      deliveryCharge: 99,
+      paymentMethod: "cod",
+      deliveryType: "Standard",
+      estimatedDelivery: "2024-01-24",
+      trackingId: null,
+      courier: null,
+      deliveryNotes: null,
+      notes: null,
+      vendor: {
+        businessName: "Sign & Display Co.",
+        email: "vendor3@signdisplay.com",
+        phone: "+91 7654321098",
+        address: "789 Commercial Street, Bangalore"
+      },
+      shippingAddress: {
+        name: "Amit Patel",
+        line1: "321, Indiranagar",
+        line2: "100 Feet Road",
+        city: "Bangalore",
+        state: "Karnataka",
+        pincode: "560038",
+        phone: "+91 9988332211"
+      },
+      items: [
+        {
+          name: "Vinyl Banner 3x6 ft",
+          quantity: 1,
+          price: 3499.00,
+          sku: "BNR-VNL-005",
+          variant: "Matte",
+          image: null
+        }
+      ],
+      payment: {
+        status: "PENDING",
+        razorpayPaymentId: null,
+        razorpayOrderId: null,
+        paidAt: null
+      }
+    },
+    {
+      _id: "ORD00456789012",
+      createdAt: "2024-01-14T11:00:00.000Z",
+      updatedAt: "2024-01-15T16:30:00.000Z",
+      status: "SHIPPED",
+      totalAmount: 599.00,
+      discount: 0,
+      deliveryCharge: 40,
+      paymentMethod: "upi",
+      deliveryType: "Express",
+      estimatedDelivery: "2024-01-17",
+      trackingId: "TRK345678901",
+      courier: "Amazon Shipping",
+      deliveryNotes: "Fragile items",
+      notes: null,
+      vendor: {
+        businessName: "Photo Prints Express",
+        email: "vendor4@photoprints.com",
+        phone: "+91 9876501234",
+        address: "321 Photo Lane, Chennai"
+      },
+      shippingAddress: {
+        name: "Divya Srinivasan",
+        line1: "567, Adyar",
+        line2: "Near Beach",
+        city: "Chennai",
+        state: "Tamil Nadu",
+        pincode: "600020",
+        phone: "+91 7766554433"
+      },
+      items: [
+        {
+          name: "Photo Prints 4x6",
+          quantity: 50,
+          price: 8.00,
+          sku: "PH-4X6-006",
+          variant: "Glossy",
+          image: null
+        },
+        {
+          name: "Canvas Print 12x18",
+          quantity: 1,
+          price: 199.00,
+          sku: "CVS-12X18-007",
+          variant: "Gallery Wrap",
+          image: null
+        }
+      ],
+      payment: {
+        status: "PAID",
+        razorpayPaymentId: "pay_JKL789012345",
+        razorpayOrderId: "order_MNO456789012",
+        paidAt: "2024-01-14T11:05:00.000Z"
+      }
+    },
+    {
+      _id: "ORD00567890123",
+      createdAt: "2024-01-13T14:30:00.000Z",
+      updatedAt: "2024-01-14T10:00:00.000Z",
+      status: "CANCELLED",
+      totalAmount: 899.00,
+      discount: 0,
+      deliveryCharge: 0,
+      paymentMethod: "card",
+      deliveryType: "Standard",
+      estimatedDelivery: null,
+      trackingId: null,
+      courier: null,
+      deliveryNotes: null,
+      notes: "Customer requested cancellation",
+      vendor: {
+        businessName: "Packaging Solutions",
+        email: "vendor5@packaging.com",
+        phone: "+91 9988776655",
+        address: "987 Industrial Estate, Pune"
+      },
+      shippingAddress: {
+        name: "Suresh Nair",
+        line1: "123, Koregaon Park",
+        line2: null,
+        city: "Pune",
+        state: "Maharashtra",
+        pincode: "411001",
+        phone: "+91 8899776655"
+      },
+      items: [
+        {
+          name: "Custom Box Packaging",
+          quantity: 25,
+          price: 35.96,
+          sku: "BOX-CST-008",
+          variant: "Eco-friendly",
+          image: null
+        }
+      ],
+      payment: {
+        status: "REFUNDED",
+        razorpayPaymentId: "pay_PQR123456789",
+        razorpayOrderId: "order_STU987654321",
+        paidAt: "2024-01-13T14:35:00.000Z"
+      }
+    }
+  ];
+};
+
 /* ---------------- MAIN PAGE ---------------- */
 export default function OrdersPage() {
   const [orders, setOrders] = useState([]);
@@ -316,22 +626,140 @@ export default function OrdersPage() {
   const [open, setOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [invoiceOpen, setInvoiceOpen] = useState(false);
+  const [usingDummyData, setUsingDummyData] = useState(false);
+  
+  // ✅ NEW: Snackbar state for notifications
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: "",
+    severity: "success"
+  });
 
   const handleView = (order) => { setSelectedOrder(order); setOpen(true); };
   const handleClose = () => { setOpen(false); setSelectedOrder(null); };
   const handlePrintInvoice = () => window.print();
   const handleOpenInvoice = () => { setOpen(false); setInvoiceOpen(true); };
 
+  // ✅ NEW: Function to update order status
+  const handleStatusUpdate = async (orderId, newStatus, setCurrentStatus) => {
+    try {
+      const token = localStorage.getItem("token");
+      const response = await axios.put(
+        `http://localhost:8000/api/order/admin/update-status/${orderId}`,
+        { status: newStatus },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (response.data.success) {
+        // Update local state
+        setOrders(prevOrders => 
+          prevOrders.map(order => 
+            order._id === orderId 
+              ? { ...order, status: newStatus }
+              : order
+          )
+        );
+        
+        // Update selected order if it's the one being modified
+        if (selectedOrder && selectedOrder._id === orderId) {
+          setSelectedOrder(prev => ({ ...prev, status: newStatus }));
+        }
+        
+        // Update current status in the row
+        if (setCurrentStatus) {
+          setCurrentStatus(newStatus);
+        }
+        
+        // Show success message
+        setSnackbar({
+          open: true,
+          message: `Order status updated to ${newStatus} successfully!`,
+          severity: "success"
+        });
+      } else {
+        throw new Error(response.data.message || "Failed to update status");
+      }
+    } catch (error) {
+      console.error("Error updating order status:", error);
+      
+      // If using dummy data, just update locally without API call
+      if (usingDummyData) {
+        setOrders(prevOrders => 
+          prevOrders.map(order => 
+            order._id === orderId 
+              ? { ...order, status: newStatus }
+              : order
+          )
+        );
+        
+        if (selectedOrder && selectedOrder._id === orderId) {
+          setSelectedOrder(prev => ({ ...prev, status: newStatus }));
+        }
+        
+        if (setCurrentStatus) {
+          setCurrentStatus(newStatus);
+        }
+        
+        setSnackbar({
+          open: true,
+          message: `Order status updated to ${newStatus} (Demo Mode)`,
+          severity: "success"
+        });
+      } else {
+        setSnackbar({
+          open: true,
+          message: error.response?.data?.message || "Failed to update order status",
+          severity: "error"
+        });
+      }
+    }
+  };
+
+  // ✅ NEW: Function to update status from dialog
+  const handleDialogStatusUpdate = async (newStatus) => {
+    if (!selectedOrder) return;
+    await handleStatusUpdate(selectedOrder._id, newStatus, null);
+    // Refresh the selected order data
+    setSelectedOrder(prev => ({ ...prev, status: newStatus }));
+  };
+
   useEffect(() => {
     const fetchOrders = async () => {
       try {
         const token = localStorage.getItem("token");
-        const res = await axios.get("https://api.minutos.in/api/order/admin/all", {
+        const res = await axios.get("http://localhost:8000/api/order/admin/all", {
           headers: { Authorization: `Bearer ${token}` },
         });
-        if (res.data.success) setOrders(res.data.orders);
+        if (res.data.success && res.data.orders && res.data.orders.length > 0) {
+          setOrders(res.data.orders);
+          setUsingDummyData(false);
+          setSnackbar({
+            open: true,
+            message: `Loaded ${res.data.orders.length} orders from server`,
+            severity: "success"
+          });
+        } else {
+          // If API returns empty array, use dummy data
+          const dummyOrders = getDummyOrders();
+          setOrders(dummyOrders);
+          setUsingDummyData(true);
+          setSnackbar({
+            open: true,
+            message: `Using demo data (${dummyOrders.length} orders) - API returned no data`,
+            severity: "info"
+          });
+        }
       } catch (err) {
         console.error("Error fetching orders:", err);
+        // Use dummy data when API fails
+        const dummyOrders = getDummyOrders();
+        setOrders(dummyOrders);
+        setUsingDummyData(true);
+        setSnackbar({
+          open: true,
+          message: `Using demo data (${dummyOrders.length} orders) - Unable to connect to server`,
+          severity: "warning"
+        });
       } finally {
         setLoading(false);
       }
@@ -355,14 +783,121 @@ export default function OrdersPage() {
     setSelected(newSelected);
   };
 
+  // ✅ NEW: Bulk status update function
+  const handleBulkStatusUpdate = async (newStatus) => {
+    if (selected.length === 0) {
+      setSnackbar({
+        open: true,
+        message: "Please select at least one order",
+        severity: "warning"
+      });
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem("token");
+      const promises = selected.map(orderId =>
+        axios.put(
+          `http://localhost:8000/api/order/admin/update-status/${orderId}`,
+          { status: newStatus },
+          { headers: { Authorization: `Bearer ${token}` } }
+        )
+      );
+
+      await Promise.all(promises);
+      
+      // Update local state
+      setOrders(prevOrders =>
+        prevOrders.map(order =>
+          selected.includes(order._id)
+            ? { ...order, status: newStatus }
+            : order
+        )
+      );
+      
+      setSelected([]);
+      setSnackbar({
+        open: true,
+        message: `${selected.length} order(s) updated to ${newStatus}`,
+        severity: "success"
+      });
+    } catch (error) {
+      console.error("Error bulk updating orders:", error);
+      
+      // If using dummy data or API fails, update locally
+      if (usingDummyData) {
+        setOrders(prevOrders =>
+          prevOrders.map(order =>
+            selected.includes(order._id)
+              ? { ...order, status: newStatus }
+              : order
+          )
+        );
+        setSelected([]);
+        setSnackbar({
+          open: true,
+          message: `${selected.length} order(s) updated to ${newStatus} (Demo Mode)`,
+          severity: "success"
+        });
+      } else {
+        setSnackbar({
+          open: true,
+          message: "Failed to update some orders",
+          severity: "error"
+        });
+      }
+    }
+  };
+
+  const handleCloseSnackbar = () => {
+    setSnackbar(prev => ({ ...prev, open: false }));
+  };
+
   return (
     <Container maxWidth="xl">
       <style>{invoiceStyles}</style>
 
       <Stack direction="row" alignItems="center" justifyContent="space-between" mb={3}>
-        <Typography variant="h4" fontWeight={700}>Orders Management</Typography>
+        <Typography variant="h4" fontWeight={700}>
+          Orders Management
+          {usingDummyData && (
+            <Chip 
+              label="Demo Mode" 
+              color="warning" 
+              size="small" 
+              sx={{ ml: 2, verticalAlign: "middle" }} 
+            />
+          )}
+        </Typography>
         <Chip label={`Total: ${orders.length}`} color="primary" variant="outlined" />
       </Stack>
+
+      {/* ✅ NEW: Bulk Action Bar */}
+      {selected.length > 0 && (
+        <Paper sx={{ p: 2, mb: 3, bgcolor: "#f5f5f5", display: "flex", alignItems: "center", gap: 2 }}>
+          <Typography variant="body2" fontWeight={600}>
+            {selected.length} order(s) selected
+          </Typography>
+          <FormControl size="small" sx={{ minWidth: 150 }}>
+            <Select
+              defaultValue=""
+              displayEmpty
+              onChange={(e) => handleBulkStatusUpdate(e.target.value)}
+            >
+              <MenuItem value="" disabled>Update Status</MenuItem>
+              <MenuItem value="PLACED">PLACED</MenuItem>
+              <MenuItem value="PROCESSING">PROCESSING</MenuItem>
+              <MenuItem value="ACCEPTED">ACCEPTED</MenuItem>
+              <MenuItem value="SHIPPED">SHIPPED</MenuItem>
+              <MenuItem value="DELIVERED">DELIVERED</MenuItem>
+              <MenuItem value="COMPLETED">COMPLETED</MenuItem>
+              <MenuItem value="REJECTED">REJECTED</MenuItem>
+              <MenuItem value="CANCELLED">CANCELLED</MenuItem>
+            </Select>
+          </FormControl>
+          <Button size="small" onClick={() => setSelected([])}>Clear Selection</Button>
+        </Paper>
+      )}
 
       <Card>
         {loading && <LinearProgress />}
@@ -384,7 +919,7 @@ export default function OrdersPage() {
                   { id: "vendor", label: "Vendor" },
                   { id: "items", label: "Items" },
                   { id: "totalAmount", label: "Amount" },
-                  { id: "payment", label: "Payment" },      // ✅ NEW column
+                  { id: "payment", label: "Payment" },
                   { id: "status", label: "Order Status" },
                   { id: "actions", label: "Actions" },
                 ]}
@@ -393,7 +928,14 @@ export default function OrdersPage() {
                 {dataFiltered
                   .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
                   .map((row) => (
-                    <OrderTableRow key={row._id} row={row} selected={selected} handleClick={handleClick} handleView={handleView} />
+                    <OrderTableRow 
+                      key={row._id} 
+                      row={row} 
+                      selected={selected} 
+                      handleClick={handleClick} 
+                      handleView={handleView}
+                      onStatusUpdate={handleStatusUpdate}
+                    />
                   ))}
                 <TableEmptyRows height={77} emptyRows={emptyRows(page, rowsPerPage, orders.length)} />
                 {!dataFiltered.length && !loading && <TableNoData />}
@@ -420,7 +962,27 @@ export default function OrdersPage() {
               <Typography variant="h6" fontWeight={700}>Order Details</Typography>
               <Typography variant="caption" color="text.secondary">#{selectedOrder?._id}</Typography>
             </Box>
-            {selectedOrder && <StatusChip status={selectedOrder.status} />}
+            <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+              {/* ✅ NEW: Status dropdown in dialog */}
+              {selectedOrder && (
+                <FormControl size="small" sx={{ minWidth: 140 }}>
+                  <Select
+                    value={selectedOrder.status}
+                    onChange={(e) => handleDialogStatusUpdate(e.target.value)}
+                    variant="outlined"
+                  >
+                    <MenuItem value="PLACED">PLACED</MenuItem>
+                    <MenuItem value="PROCESSING">PROCESSING</MenuItem>
+                    <MenuItem value="ACCEPTED">ACCEPTED</MenuItem>
+                    <MenuItem value="SHIPPED">SHIPPED</MenuItem>
+                    <MenuItem value="DELIVERED">DELIVERED</MenuItem>
+                    <MenuItem value="COMPLETED">COMPLETED</MenuItem>
+                    <MenuItem value="REJECTED">REJECTED</MenuItem>
+                    <MenuItem value="CANCELLED">CANCELLED</MenuItem>
+                  </Select>
+                </FormControl>
+              )}
+            </Box>
           </Box>
         </DialogTitle>
         <Divider />
@@ -617,7 +1179,6 @@ export default function OrdersPage() {
         <DialogActions sx={{ px: 3, py: 2, gap: 1 }}>
           <Button onClick={handleClose} variant="outlined" color="inherit">Close</Button>
           <Button onClick={handleOpenInvoice} variant="contained" color="primary">🖨️ Generate Invoice</Button>
-          <Button variant="contained" color="success">Order Done</Button>
         </DialogActions>
       </Dialog>
 
@@ -637,6 +1198,18 @@ export default function OrdersPage() {
           <AdminInvoice order={selectedOrder} />
         </DialogContent>
       </Dialog>
+
+      {/* ✅ NEW: Snackbar for notifications */}
+      <Snackbar 
+        open={snackbar.open} 
+        autoHideDuration={6000} 
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+      >
+        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity} sx={{ width: '100%' }}>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Container>
   );
 }

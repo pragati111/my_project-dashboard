@@ -33,7 +33,7 @@ export default function LoginView() {
     if (getToken()) {
       navigate('/admin/dashboard', { replace: true });
     }
-  }, [navigate]);
+}, [navigate]);
 
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState('');

@@ -50,41 +50,16 @@ export const UploadArea = ({
       sx={{ height: "100%", display: "flex", flexDirection: "column", position: "relative" }}
     >
       {/* Header */}
-      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 2 }}>
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-          <Box
-            sx={{
-              backgroundColor: "#f3f4f6",
-              color: "#6b7280",
-              borderRadius: "4px",
-              width: 24,
-              height: 24,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 12,
-              fontWeight: "bold",
-            }}
-          >
-            IMG
-          </Box>
-          <Box>
-            <Typography variant="subtitle1" fontWeight="600" color="#1f2937">
-              {title}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              {subtitle}
-            </Typography>
-          </Box>
+      <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
+        <Box>
+          <Typography variant="subtitle1" fontWeight="600">
+            {title}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {subtitle}
+          </Typography>
         </Box>
-        {isEmpty && (
-          <Chip
-            label="Empty"
-            size="small"
-            sx={{ color: "#6b7280", borderColor: "#d1d5db" }}
-            variant="outlined"
-          />
-        )}
+        {isEmpty && <Chip label="Empty" size="small" />}
       </Box>
 
       {/* Upload Area */}
@@ -92,7 +67,6 @@ export const UploadArea = ({
         sx={{
           flexGrow: 1,
           display: "flex",
-          flexDirection: "column",
           justifyContent: "center",
           alignItems: "center",
           minHeight: 200,
@@ -102,65 +76,35 @@ export const UploadArea = ({
           position: "relative",
         }}
       >
-        {hasImage && imageUrl ? (
+        {hasImage ? (
           <img
             src={imageUrl}
             alt={title}
-            style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 8, maxHeight: 200 }}
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              borderRadius: 8,
+              maxHeight: 200,
+            }}
           />
         ) : (
-          <Box sx={{ textAlign: "center" }}>
-            <Box
-              sx={{
-                fontSize: 40,
-                color: "#9ca3af",
-                mb: 1,
-                backgroundColor: "#f3f4f6",
-                borderRadius: "50%",
-                width: 60,
-                height: 60,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                mx: "auto",
-                fontWeight: "bold",
-              }}
-            >
-              ↑
-            </Box>
-            <Typography variant="h6" color="#374151" gutterBottom>
-              Upload Banner
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Drag & drop or click to select
-            </Typography>
-          </Box>
+          <Typography>Upload Banner</Typography>
         )}
 
-        {/* Upload / Change Button */}
         <Button
           component="label"
           variant="contained"
           disabled={isUploading}
           sx={{
             ...redButtonStyle,
-            position: hasImage && imageUrl ? "absolute" : "static",
-            bottom: hasImage && imageUrl ? 10 : "auto",
-            right: hasImage && imageUrl ? 10 : "auto",
-            mt: hasImage && imageUrl ? 0 : 2,
+            position: hasImage ? "absolute" : "static",
+            bottom: hasImage ? 10 : "auto",
+            right: hasImage ? 10 : "auto",
           }}
         >
-          {isUploading ? (
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-              <CircularProgress size={16} color="inherit" />
-              Uploading...
-            </Box>
-          ) : hasImage && imageUrl ? (
-            "Change"
-          ) : (
-            "Upload"
-          )}
-          <input type="file" accept="image/*" hidden onChange={onUpload} disabled={isUploading} />
+          {isUploading ? "Uploading..." : hasImage ? "Change" : "Upload"}
+          <input type="file" hidden onChange={onUpload} />
         </Button>
       </Box>
     </CardContent>
@@ -168,34 +112,30 @@ export const UploadArea = ({
 );
 
 // ----------------------------------------------------------
-// Banner config — add/remove banners here easily
+// 🔥 Dynamic Banner Config (1 → 15)
 // ----------------------------------------------------------
-const BANNER_FIELDS = [
-  { key: "homeBanner1", title: "Home Banner 1", subtitle: "First main banner" },
-  { key: "homeBanner2", title: "Home Banner 2", subtitle: "Second main banner" },
-  { key: "homeBanner3", title: "Home Banner 3", subtitle: "Third main banner" },
-];
+const BANNER_FIELDS = Array.from({ length: 15 }, (_, i) => ({
+  key: `homeBanner${i + 1}`,
+  title: `Home Banner ${i + 1}`,
+  subtitle: `Banner ${i + 1}`,
+}));
 
 // ----------------------------------------------------------
 // ✅ Main Component
 // ----------------------------------------------------------
 export default function BannerManager() {
   const [banner, setBanner] = useState(null);
-  const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" });
+  const [snackbar, setSnackbar] = useState({ open: false, message: "" });
   const [loading, setLoading] = useState(false);
-  // Track uploading state per banner key
   const [uploadingKey, setUploadingKey] = useState(null);
 
   const fetchBanner = async () => {
     setLoading(true);
     try {
       const res = await getBanner();
-      console.log("API response:", res);
-      console.log("Banner data:", res.banner);
       setBanner(res.banner || null);
-    } catch (error) {
-      console.error("Error fetching banner:", error.response?.status, error.response?.data);
-      setSnackbar({ open: true, message: "Error fetching banner", severity: "error" });
+    } catch {
+      setSnackbar({ open: true, message: "Error fetching banner" });
     } finally {
       setLoading(false);
     }
@@ -210,64 +150,52 @@ export default function BannerManager() {
     formData.append("file", file);
     formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
 
-    const response = await axios.post(
+    const res = await axios.post(
       `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
-      formData,
-      { headers: { "Content-Type": "multipart/form-data" } }
+      formData
     );
-    return response.data.secure_url;
+
+    return res.data.secure_url;
   };
 
   const handleSubmit = async (values) => {
     try {
       await createBanner(values);
-      setSnackbar({ open: true, message: "✅ Banners saved successfully", severity: "success" });
+      setSnackbar({ open: true, message: "Banners saved successfully" });
       fetchBanner();
-    } catch (error) {
-      console.error("Error saving banners:", error);
-      setSnackbar({ open: true, message: "❌ Error saving banners", severity: "error" });
+    } catch {
+      setSnackbar({ open: true, message: "Error saving banners" });
     }
   };
 
   return (
-    <Box sx={{ p: 4, backgroundColor: "#ffffff", minHeight: "100vh" }}>
-      {/* Header */}
-      <Box sx={{ mb: 4 }}>
-        <Typography variant="h4" fontWeight="700" color="#1f2937" gutterBottom>
-          Banner Management
-        </Typography>
-        <Typography variant="body1" color="text.secondary">
-          Manage your homepage banners — upload up to 3 images
-        </Typography>
-      </Box>
+    <Box sx={{ p: 4 }}>
+      <Typography variant="h4" mb={2}>
+        Banner Management
+      </Typography>
 
       {loading ? (
-        <Box display="flex" justifyContent="center" p={3}>
-          <CircularProgress />
-        </Box>
+        <CircularProgress />
       ) : (
         <Formik
-          initialValues={{
-            homeBanner1: banner?.homeBanner1 || "",
-            homeBanner2: banner?.homeBanner2 || "",
-            homeBanner3: banner?.homeBanner3 || "",
-          }}
+          initialValues={BANNER_FIELDS.reduce((acc, field) => {
+            acc[field.key] = banner?.[field.key] || "";
+            return acc;
+          }, {})}
           enableReinitialize
           onSubmit={handleSubmit}
         >
           {({ setFieldValue, values }) => {
-            // One handler for all banners, takes the field key
-            const handleImageUpload = (fieldKey) => async (event) => {
-              const { files } = event.target;
-              if (!files.length) return;
+            const handleUpload = (key) => async (e) => {
+              const file = e.target.files[0];
+              if (!file) return;
 
-              setUploadingKey(fieldKey);
+              setUploadingKey(key);
               try {
-                const url = await uploadImageToCloudinary(files[0]);
-                setFieldValue(fieldKey, url);
-                setSnackbar({ open: true, message: `Banner uploaded successfully`, severity: "success" });
+                const url = await uploadImageToCloudinary(file);
+                setFieldValue(key, url);
               } catch {
-                setSnackbar({ open: true, message: "Error uploading image", severity: "error" });
+                setSnackbar({ open: true, message: "Upload failed" });
               } finally {
                 setUploadingKey(null);
               }
@@ -277,37 +205,28 @@ export default function BannerManager() {
               <Form>
                 <Grid container spacing={3}>
                   {BANNER_FIELDS.map(({ key, title, subtitle }) => (
-                    <Grid item xs={12} md={4} key={key}>
+                    <Grid item xs={12} sm={6} md={4} lg={3} key={key}>
                       <UploadArea
                         title={title}
                         subtitle={subtitle}
                         hasImage={!!values[key]}
                         imageUrl={values[key]}
                         isEmpty={!values[key]}
-                        onUpload={handleImageUpload(key)}
+                        onUpload={handleUpload(key)}
                         isUploading={uploadingKey === key}
                       />
                     </Grid>
                   ))}
                 </Grid>
 
-                {/* Save Button */}
-                <Box sx={{ mt: 4, display: "flex", justifyContent: "center" }}>
+                <Box mt={4} textAlign="center">
                   <Button
                     type="submit"
                     variant="contained"
-                    size="large"
                     disabled={!!uploadingKey}
-                    sx={{ ...redButtonStyle, px: 4, py: 1.5 }}
+                    sx={redButtonStyle}
                   >
-                    {uploadingKey ? (
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                        <CircularProgress size={20} color="inherit" />
-                        Uploading...
-                      </Box>
-                    ) : (
-                      "Save All Banners"
-                    )}
+                    Save All Banners
                   </Button>
                 </Box>
               </Form>
@@ -316,11 +235,10 @@ export default function BannerManager() {
         </Formik>
       )}
 
-      {/* Snackbar */}
       <Snackbar
         open={snackbar.open}
         autoHideDuration={3000}
-        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        onClose={() => setSnackbar({ open: false, message: "" })}
         message={snackbar.message}
       />
     </Box>

@@ -9,12 +9,22 @@ import {
   TableContainer, TableHead, TableRow, Card, CardContent, CardMedia,
   Dialog, DialogTitle, DialogContent, DialogActions, Switch,
   FormControlLabel, Chip, Divider, Select, InputLabel, FormControl,
-  Autocomplete,
+  Autocomplete, CircularProgress,
 } from "@mui/material";
 import { MdEdit, MdDelete, MdAdd, MdRemove, MdCloudUpload } from "react-icons/md";
 import { getCategories } from "src/services/categoryService";
 import { getSubCategories } from "src/services/SubcategoryService";
-import { createProduct, deleteProduct, getProduct, updateProduct } from "src/services/ProductService";
+import { 
+  createProduct, 
+  deleteProduct, 
+  getProduct, 
+  updateProduct,
+  getProductsByCategory,
+  getProductsBySubCategory,
+  getPopularProducts,
+  toggleProductStatus,
+  computePrice 
+} from "src/services/ProductService";
 
 const CLOUDINARY_UPLOAD_PRESET = "market_data";
 const CLOUDINARY_CLOUD_NAME = "drq4o4qix";
@@ -22,11 +32,12 @@ const CLOUDINARY_CLOUD_NAME = "drq4o4qix";
 const CUSTOMIZATION_TYPES = ["radio", "checkbox", "dropdown", "text", "textarea", "file"];
 const SUPER_TAGS_OPTIONS = ["design1", "design2", "design3", "design4", "design5"];
 
+// Updated emptyCustomization with proper option structure
 const emptyCustomization = {
   id: "",
   label: "",
   type: "radio",
-  options: [],
+  options: [], // Will store { label: "", priceAdjustment: 0 }
   placeholder: "",
   required: false,
   multiple: false,
@@ -37,6 +48,7 @@ const emptyCustomization = {
 
 const emptyMedia = { type: "image", url: "" };
 const emptySpecification = { key: "", value: "" };
+// Updated offer structure
 const emptyOffer = { title: "", code: "", discountPercent: 0, active: true, expiryDate: "" };
 
 const redButtonStyle = {
@@ -51,7 +63,7 @@ const redOutlinedButtonStyle = {
   "&:hover": { borderColor: "#b91c1c", bgcolor: "rgba(220,38,38,0.04)" },
 };
 
-// ─── Customization Builder ───────────────────────────────────────────────────
+// ─── Updated Customization Builder with price adjustments ───────────────────
 function CustomizationBuilder({ customizations, setFieldValue }) {
   const add = () =>
     setFieldValue("customizations", [...customizations, { ...emptyCustomization, id: `field_${Date.now()}` }]);
@@ -75,15 +87,20 @@ function CustomizationBuilder({ customizations, setFieldValue }) {
 
   const addOption = (i) => {
     const updated = customizations.map((c, idx) =>
-      idx === i ? { ...c, options: [...(c.options || []), ""] } : c
+      idx === i ? { ...c, options: [...(c.options || []), { label: "", priceAdjustment: 0 }] } : c
     );
     setFieldValue("customizations", updated);
   };
 
-  const updateOption = (i, oi, value) => {
+  const updateOption = (i, oi, field, value) => {
     const updated = customizations.map((c, idx) =>
       idx === i
-        ? { ...c, options: c.options.map((o, oidx) => (oidx === oi ? value : o)) }
+        ? { 
+            ...c, 
+            options: c.options.map((o, oidx) => 
+              oidx === oi ? { ...o, [field]: field === "priceAdjustment" ? parseFloat(value) || 0 : value } : o
+            ) 
+          }
         : c
     );
     setFieldValue("customizations", updated);
@@ -211,25 +228,37 @@ function CustomizationBuilder({ customizations, setFieldValue }) {
             {["radio", "checkbox", "dropdown"].includes(c.type) && (
               <Grid item xs={12}>
                 <Box display="flex" alignItems="center" gap={1} mb={1}>
-                  <Typography variant="body2" color="text.secondary">Options</Typography>
+                  <Typography variant="body2" color="text.secondary">Options (with price adjustments)</Typography>
                   <Button size="small" startIcon={<MdAdd />} onClick={() => addOption(i)} sx={{ ...redOutlinedButtonStyle, py: 0 }}>
                     Add
                   </Button>
                 </Box>
                 {(c.options || []).map((opt, oi) => (
-                  <Box key={oi} display="flex" gap={1} mb={1}>
+                  <Box key={oi} display="flex" gap={1} mb={1} alignItems="center">
                     <TextField
                       size="small"
                       fullWidth
                       placeholder={`Option ${oi + 1}`}
-                      value={opt}
-                      onChange={(e) => updateOption(i, oi, e.target.value)}
+                      value={opt.label || ""}
+                      onChange={(e) => updateOption(i, oi, "label", e.target.value)}
+                    />
+                    <TextField
+                      size="small"
+                      type="number"
+                      placeholder="Price adj."
+                      value={opt.priceAdjustment || 0}
+                      onChange={(e) => updateOption(i, oi, "priceAdjustment", e.target.value)}
+                      sx={{ width: "120px" }}
+                      InputProps={{ inputProps: { min: -1000, step: 10 } }}
                     />
                     <IconButton size="small" color="error" onClick={() => removeOption(i, oi)}>
                       <MdRemove />
                     </IconButton>
                   </Box>
                 ))}
+                <Typography variant="caption" color="text.secondary">
+                  💡 Price adjustment: positive = extra cost, negative = discount
+                </Typography>
               </Grid>
             )}
 
@@ -262,18 +291,6 @@ function CustomizationBuilder({ customizations, setFieldValue }) {
                     />
                   ))}
                 </Box>
-              </Grid>
-            )}
-
-            {c.type !== "file" && c.type !== "radio" && c.type !== "checkbox" && c.type !== "dropdown" && (
-              <Grid item xs={12}>
-                <TextField
-                  label="Default Value"
-                  fullWidth
-                  size="small"
-                  value={c.value || ""}
-                  onChange={(e) => update(i, "value", e.target.value)}
-                />
               </Grid>
             )}
 
@@ -311,7 +328,7 @@ function CustomizationBuilder({ customizations, setFieldValue }) {
   );
 }
 
-// ─── Specifications Builder ───────────────────────────────────────────────────
+// ─── Specifications Builder (unchanged) ─────────────────────────────────────
 function SpecificationsBuilder({ specifications, setFieldValue }) {
   const add = () => setFieldValue("specifications", [...specifications, { key: "", value: "" }]);
   const remove = (i) => setFieldValue("specifications", specifications.filter((_, idx) => idx !== i));
@@ -357,7 +374,7 @@ function SpecificationsBuilder({ specifications, setFieldValue }) {
   );
 }
 
-// ─── Offers Builder with Comma-Separated Input ───────────────────────────────
+// ─── Offers Builder (unchanged) ────────────────────────────────────────────
 function OffersBuilder({ offers, setFieldValue, showSnackbar }) {
   const [bulkOfferText, setBulkOfferText] = useState("");
   
@@ -524,7 +541,7 @@ function OffersBuilder({ offers, setFieldValue, showSnackbar }) {
   );
 }
 
-// ─── Media Builder ────────────────────────────────────────────────────────────
+// ─── Media Builder (unchanged) ──────────────────────────────────────────────
 function MediaBuilder({ media, setFieldValue, uploading, setUploading, showSnackbar }) {
   const uploadToCloudinary = async (file, resourceType = "image") => {
     const formData = new FormData();
@@ -607,7 +624,7 @@ function MediaBuilder({ media, setFieldValue, uploading, setUploading, showSnack
   );
 }
 
-// ─── Main Component ───────────────────────────────────────────────────────────
+// ─── Main Component ──────────────────────────────────────────────────────────
 export default function ProductData() {
   const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" });
   const [uploading, setUploading] = useState(false);
@@ -619,6 +636,8 @@ export default function ProductData() {
   const [editingProduct, setEditingProduct] = useState(null);
   const [deleteDialog, setDeleteDialog] = useState({ open: false, productId: null, productName: "" });
   const [currentPage, setCurrentPage] = useState(1);
+  const [pricePreview, setPricePreview] = useState(null);
+  const [selectedCustomizations, setSelectedCustomizations] = useState({});
   const PRODUCTS_PER_PAGE = 20;
 
   const showSnackbar = (message, severity = "success") =>
@@ -669,6 +688,16 @@ export default function ProductData() {
     }
   }, []);
 
+  // New function to preview price with customizations
+  const handlePricePreview = async (productId, customizations) => {
+    try {
+      const res = await computePrice(productId, { selectedOptions: selectedCustomizations });
+      setPricePreview(res);
+    } catch (err) {
+      console.error("Price preview failed:", err);
+    }
+  };
+
   const handleEdit = (product) => {
     setEditingProduct(product);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -690,6 +719,20 @@ export default function ProductData() {
       setDeleteDialog({ open: false, productId: null, productName: "" });
     } catch {
       showSnackbar("Failed to delete product", "error");
+    }
+  };
+
+  const handleToggleStatus = async (productId, currentStatus) => {
+    try {
+      const res = await toggleProductStatus(productId);
+      setProducts((prev) =>
+        prev.map((p) =>
+          p._id === productId ? { ...p, active: res.active } : p
+        )
+      );
+      showSnackbar(`Product ${res.active ? "activated" : "deactivated"} successfully`);
+    } catch (err) {
+      showSnackbar("Failed to toggle status", "error");
     }
   };
 
@@ -792,7 +835,7 @@ export default function ProductData() {
           if (!values.name) errors.name = "Required";
           if (!values.category) errors.category = "Required";
           if (!values.subCategory) errors.subCategory = "Required";
-          if (!values.price) errors.price = "Required";
+          if (!values.price && values.price !== 0) errors.price = "Required";
           if (values.rating < 0 || values.rating > 5) errors.rating = "Rating must be 0–5";
           if (values.superTags?.length > 5) errors.superTags = "Maximum 5 super tags allowed";
           return errors;
@@ -881,7 +924,7 @@ export default function ProductData() {
                       />
                     </Grid>
 
-                    {/* Tags - Fixed Chip Input */}
+                    {/* Tags */}
                     <Grid item xs={12}>
                       <Typography variant="subtitle2" gutterBottom sx={{ color: "#374151", fontWeight: 500 }}>
                         Tags
@@ -1035,7 +1078,7 @@ export default function ProductData() {
                 <Paper sx={{ p: 3, mb: 3 }}>
                   <Typography variant="h6" color="black" gutterBottom>Main Image</Typography>
                   <Button component="label" variant="outlined" fullWidth sx={redOutlinedButtonStyle} disabled={uploading}>
-                    {uploading ? "Uploading..." : "Upload Main Image"}
+                    {uploading ? <CircularProgress size={24} /> : "Upload Main Image"}
                     <input
                       type="file"
                       hidden
@@ -1083,7 +1126,7 @@ export default function ProductData() {
                     {({ push, remove }) => (
                       <>
                         <Button component="label" variant="outlined" fullWidth sx={redOutlinedButtonStyle} disabled={uploading}>
-                          {uploading ? "Uploading..." : "Upload Gallery Images"}
+                          {uploading ? <CircularProgress size={24} /> : "Upload Gallery Images"}
                           <input
                             type="file"
                             hidden
@@ -1240,7 +1283,7 @@ export default function ProductData() {
         )}
       </Formik>
 
-      {/* ── Product Table ── */}
+      {/* ── Product Table with Status Toggle ── */}
       <Paper sx={{ mt: 6 }}>
         <TableContainer>
           <Table>
@@ -1278,7 +1321,12 @@ export default function ProductData() {
                     <TableCell>
                       <Box display="flex" flexDirection="column" gap={0.5}>
                         {p.popular && <Chip label="Popular" size="small" color="warning" />}
-                        <Chip label={p.active ? "Active" : "Inactive"} size="small" color={p.active ? "success" : "default"} />
+                        <Switch 
+                          checked={p.active} 
+                          onChange={() => handleToggleStatus(p._id, p.active)}
+                          color="success"
+                          size="small"
+                        />
                       </Box>
                     </TableCell>
                     <TableCell>

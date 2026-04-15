@@ -19,7 +19,7 @@ export default function ProductsView() {
 
   const handleOpenFilter = () => {
     setOpenFilter(true);
-  };
+};
 
   const handleCloseFilter = () => {
     setOpenFilter(false);

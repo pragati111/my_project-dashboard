@@ -1,3 +1,5 @@
+/* eslint-disable import/order */
+/* eslint-disable perfectionist/sort-imports */
 // src/routes/sections.jsx
 import { lazy, Suspense } from 'react';
 import { Outlet, Navigate, useRoutes } from 'react-router-dom';
@@ -45,7 +47,7 @@ export default function Router() {
         { path: 'products', element: <Product /> },
         { path: 'VendorList', element: <Vendor /> },
         { path: 'order', element: <OrderPage /> },
-        // { path: 'blog', element: <BlogPage /> },
+        { path: 'blog', element: <BlogPage /> },
       ],
     },
 
