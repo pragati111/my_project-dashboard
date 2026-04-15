@@ -99,8 +99,8 @@ export default function Nav({ openNav, onCloseNav }) {
     >
   <Box
   component="img"
-  src="https://www.minutos.in/minitos.png"
-  alt="Minutos Logo"
+  src="https://www.printsy.in/printsy.png"
+  alt="Printsy Logo"
   sx={{ width:150, height: 50 ,mt:7 ,ml:6 , mb:5 }}
 />
 

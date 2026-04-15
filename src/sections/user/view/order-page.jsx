@@ -183,7 +183,7 @@ const AdminInvoice = ({ order }) => {
       {/* Header */}
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 4 }}>
         <Box>
-          <Typography variant="h4" fontWeight={800} sx={{ color: "#1a1a2e", letterSpacing: -0.5 }}>MINUTOS</Typography>
+          <Typography variant="h4" fontWeight={800} sx={{ color: "#1a1a2e", letterSpacing: -0.5 }}>PRINTSY</Typography>
           <Typography variant="caption" color="text.secondary">Admin Order Invoice</Typography>
         </Box>
         <Box sx={{ textAlign: "right" }}>
@@ -298,7 +298,7 @@ const AdminInvoice = ({ order }) => {
 
       <Box sx={{ height: 1, background: "#e0e0e0", mb: 2 }} />
       <Typography variant="caption" color="text.secondary" sx={{ display: "block", textAlign: "center" }}>
-        This is a system-generated admin invoice. — Minutos Platform © {new Date().getFullYear()}
+        This is a system-generated admin invoice. — Printsy Platform © {new Date().getFullYear()}
       </Typography>
     </Box>
   );

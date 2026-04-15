@@ -87,8 +87,8 @@ export default function AppView() {
         {/* Example charts (can replace later with real analytics) */}
        <Grid xs={12} md={6} lg={8}>
   <AppWebsiteVisits
-    title="Monthly Grocery Orders Overview (India)"
-    subheader="(+35%) growth in grocery orders YoY"
+    title="Monthly Orders Overview (India)"
+    subheader="(+35%) growth in orders YoY"
     chart={{
       labels: [
         "Jan 2024",
@@ -117,7 +117,7 @@ export default function AppView() {
           data: [2200, 2400, 2700, 3100, 3400, 3700, 4100, 4500, 4900, 5200, 5600],
         },
         {
-          name: "Repeat Grocery Buyers",
+          name: "Repeat Buyers",
           type: "line",
           fill: "solid",
           data: [700, 850, 950, 1100, 1300, 1550, 1700, 1850, 2000, 2300, 2500],
@@ -129,7 +129,7 @@ export default function AppView() {
 
 <Grid xs={12} md={6} lg={4}>
   <AppCurrentVisits
-    title="Grocery Order Distribution by Indian Region"
+    title=" Order Distribution by Indian Region"
     chart={{
       series: [
         { label: "North India (Delhi, Punjab, UP)", value: 6200 },
@@ -143,8 +143,8 @@ export default function AppView() {
 
 <Grid xs={12} md={6} lg={8}>
   <AppConversionRates
-    title="Top-Selling Grocery Categories (India)"
-    subheader="Conversion and demand across major grocery types"
+    title="Top-Selling Categories (India)"
+    subheader="Conversion and demand across major product types"
     chart={{
       series: [
         { label: "Fresh Fruits & Vegetables", value: 1280 },
@@ -164,15 +164,9 @@ export default function AppView() {
 
 <Grid xs={12} md={6} lg={4}>
   <AppCurrentSubject
-    title="Customer Behavior (Grocery Buyers)"
+    title="Customer Behavior "
     chart={{
       categories: [
-        "Cart Abandonment Rate",
-        "Avg. Basket Value (₹)",
-        "Repeat Purchase Rate",
-        "Delivery Speed Satisfaction",
-        "Freshness Rating",
-        "Refund / Replacement Requests",
       ],
       series: [
         {

@@ -984,10 +984,6 @@ export default function ProductData() {
                       <TextField name="more_details.brand" label="Brand" fullWidth value={values.more_details.brand} onChange={handleChange} />
                     </Grid>
                     <Grid item xs={6}>
-                      <TextField name="more_details.expiry" type="date" label="Expiry" fullWidth
-                        InputLabelProps={{ shrink: true }} value={values.more_details.expiry} onChange={handleChange} />
-                    </Grid>
-                    <Grid item xs={6}>
                       <TextField
                         name="rating"
                         label="Rating (0–5)"
