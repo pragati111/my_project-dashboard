@@ -23,7 +23,6 @@ import {
   TableRow,
   TextField,
   Typography,
-  Pagination,
   MenuItem,
   Select,
   InputLabel,
@@ -61,10 +60,6 @@ export default function SubCategory() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [subToDelete, setSubToDelete] = useState(null);
 
-  // Pagination
-  const [page, setPage] = useState(1);
-  const rowsPerPage = 10;
-
   // Fetch categories
   const fetchCategories = async () => {
     try {
@@ -82,7 +77,8 @@ export default function SubCategory() {
     setLoading(true);
     try {
       const data = await getSubCategories();
-      console.log("Subcategories data:", data);
+      console.log("All subcategories data:", data);
+      console.log("Total subcategories count:", data.subcategories?.length || 0);
       setSubcategories(data.subcategories || []);
     } catch (error) {
       console.error("Error fetching subcategories:", error);
@@ -155,7 +151,7 @@ export default function SubCategory() {
         name: values.name,
         category: values.category,
         image: values.image || "",
-        section: values.section || "", // Add section if needed
+        section: values.section || "",
       };
 
       if (editingSub) {
@@ -209,23 +205,12 @@ export default function SubCategory() {
     setSubToDelete(null);
   };
 
-  // Pagination
-  const handleChangePage = (event, value) => setPage(value);
-
   // Filter subcategories based on search query
   const filteredSubs = subcategories.filter(
     (sub) =>
       sub.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       sub.category?.name?.toLowerCase().includes(searchQuery.toLowerCase())
   );
-
-  // Apply pagination
-  const paginatedSubs = filteredSubs.slice((page - 1) * rowsPerPage, page * rowsPerPage);
-
-  // Reset pagination when search changes
-  useEffect(() => {
-    setPage(1);
-  }, [searchQuery]);
 
   // Red button styles
   const redButtonStyle = {
@@ -411,116 +396,104 @@ export default function SubCategory() {
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder="Search by name or category..."
         />
+        <Typography variant="body2" color="textSecondary">
+          Total: {filteredSubs.length} subcategories
+        </Typography>
       </Box>
 
-      {/* Table */}
+      {/* Table - Showing All Subcategories */}
       {loading ? (
         <Box display="flex" justifyContent="center" p={3}>
           <CircularProgress />
         </Box>
       ) : (
-        <>
-          <TableContainer component={Paper} sx={{ boxShadow: 2 }}>
-            <Table>
-              <TableHead sx={{ bgcolor: '#f5f5f5' }}>
-                <TableRow>
-                  <TableCell><b>Name</b></TableCell>
-                  <TableCell><b>Category</b></TableCell>
-                  <TableCell><b>Section</b></TableCell>
-                  <TableCell><b>Image</b></TableCell>
-                  <TableCell><b>Actions</b></TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {paginatedSubs.length > 0 ? (
-                  paginatedSubs.map((sub) => (
-                    <TableRow key={sub._id} hover>
-                      <TableCell>{sub.name}</TableCell>
-                      <TableCell>{sub.category?.name || "N/A"}</TableCell>
-                      <TableCell>{sub.section || "—"}</TableCell>
-                      <TableCell>
-                        {sub.image ? (
-                          <img
-                            src={sub.image}
-                            alt={sub.name}
-                            width="80"
-                            height="80"
-                            style={{ 
-                              objectFit: "cover", 
-                              borderRadius: "4px",
-                              border: "1px solid #e0e0e0"
-                            }}
-                            onError={(e) => {
-                              e.target.onerror = null;
-                              e.target.src = "https://via.placeholder.com/80?text=No+Image";
-                            }}
-                          />
-                        ) : (
-                          <Box 
-                            sx={{ 
-                              width: 80, 
-                              height: 80, 
-                              bgcolor: '#f5f5f5', 
-                              display: 'flex', 
-                              alignItems: 'center', 
-                              justifyContent: 'center',
-                              borderRadius: 1
-                            }}
-                          >
-                            <Typography variant="caption" color="textSecondary">
-                              No Image
-                            </Typography>
-                          </Box>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <IconButton 
-                          color="primary" 
-                          onClick={() => {
-                            setEditingSub(sub);
-                            setPage(1);
+        <TableContainer component={Paper} sx={{ boxShadow: 2 }}>
+          <Table>
+            <TableHead sx={{ bgcolor: '#f5f5f5' }}>
+              <TableRow>
+                <TableCell><b>Name</b></TableCell>
+                <TableCell><b>Category</b></TableCell>
+                <TableCell><b>Section</b></TableCell>
+                <TableCell><b>Image</b></TableCell>
+                <TableCell><b>Actions</b></TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {filteredSubs.length > 0 ? (
+                filteredSubs.map((sub) => (
+                  <TableRow key={sub._id} hover>
+                    <TableCell>{sub.name}</TableCell>
+                    <TableCell>{sub.category?.name || "N/A"}</TableCell>
+                    <TableCell>{sub.section || "—"}</TableCell>
+                    <TableCell>
+                      {sub.image ? (
+                        <img
+                          src={sub.image}
+                          alt={sub.name}
+                          width="80"
+                          height="80"
+                          style={{ 
+                            objectFit: "cover", 
+                            borderRadius: "4px",
+                            border: "1px solid #e0e0e0"
                           }}
-                          title="Edit"
+                          onError={(e) => {
+                            e.target.onerror = null;
+                            e.target.src = "https://via.placeholder.com/80?text=No+Image";
+                          }}
+                        />
+                      ) : (
+                        <Box 
+                          sx={{ 
+                            width: 80, 
+                            height: 80, 
+                            bgcolor: '#f5f5f5', 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            justifyContent: 'center',
+                            borderRadius: 1
+                          }}
                         >
-                          <MdEdit />
-                        </IconButton>
-                        <IconButton 
-                          color="error" 
-                          onClick={() => handleDeleteClick(sub._id)}
-                          title="Delete"
-                        >
-                          <MdDelete />
-                        </IconButton>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={5} align="center">
-                      <Typography variant="body1" color="textSecondary" sx={{ py: 3 }}>
-                        {searchQuery 
-                          ? "No subcategories found matching your search" 
-                          : "No subcategories available. Add one to get started!"}
-                      </Typography>
+                          <Typography variant="caption" color="textSecondary">
+                            No Image
+                          </Typography>
+                        </Box>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <IconButton 
+                        color="primary" 
+                        onClick={() => {
+                          setEditingSub(sub);
+                        }}
+                        title="Edit"
+                      >
+                        <MdEdit />
+                      </IconButton>
+                      <IconButton 
+                        color="error" 
+                        onClick={() => handleDeleteClick(sub._id)}
+                        title="Delete"
+                      >
+                        <MdDelete />
+                      </IconButton>
                     </TableCell>
                   </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
-
-          {/* Pagination */}
-          {filteredSubs.length > rowsPerPage && (
-            <Box display="flex" justifyContent="center" mt={2}>
-              <Pagination
-                count={Math.ceil(filteredSubs.length / rowsPerPage)}
-                page={page}
-                onChange={handleChangePage}
-                color="primary"
-              />
-            </Box>
-          )}
-        </>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={5} align="center">
+                    <Typography variant="body1" color="textSecondary" sx={{ py: 3 }}>
+                      {searchQuery 
+                        ? "No subcategories found matching your search" 
+                        : "No subcategories available. Add one to get started!"}
+                    </Typography>
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
       )}
 
       {/* Delete Confirmation Dialog */}
