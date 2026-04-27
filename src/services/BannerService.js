@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const API = axios.create({
-  baseURL: 'http://localhost:8000/api',
+  baseURL: 'https://my-project-backend-ee4t.onrender.com/api',
 });
 API.interceptors.request.use((config) => {
   const token = localStorage.getItem('adminToken');
