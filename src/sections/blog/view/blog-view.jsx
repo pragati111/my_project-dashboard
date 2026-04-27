@@ -26,7 +26,7 @@ import {
   Alert,
 } from "@mui/material";
 
-const API_BASE_URL = "http://localhost:8000/api/coupons";
+const API_BASE_URL = "https://my-project-backend-ee4t.onrender.com/api/offercode";
 
 // 🔥 Coupon API
 const couponApi = {
