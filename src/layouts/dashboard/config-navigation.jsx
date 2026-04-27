@@ -54,8 +54,8 @@ const navConfig = [
     icon: icon('ic_blog'),
   },
   {
-    title: 'HomePageSetting',
-    path: '/setting',
+    title: 'Generate Coupan Code',
+    path: '/Promocode',
     icon: icon('ic_lock'),
   },
   // {

@@ -195,6 +195,14 @@ export default function AppView() {
           />
         </Grid>
 
+         <Grid item xs={12} sm={6} md={3}>
+  <AppWidgetSummary
+    title="Top 10 Customers"
+    total={10}
+    color="success"
+    icon={<img alt="icon" src="/assets/icons/glass/ic_glass_bag.png" />}
+  />
+</Grid>
         {/* Total Sales */}
         <Grid xs={12} sm={6} md={3}>
           <AppWidgetSummary

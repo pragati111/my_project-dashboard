@@ -1,1215 +1,568 @@
 /* eslint-disable */
 import axios from "axios";
-import { useState, useEffect, useMemo, useRef } from "react";
-import Card from "@mui/material/Card";
-import Stack from "@mui/material/Stack";
-import Table from "@mui/material/Table";
-import Chip from "@mui/material/Chip";
-import Container from "@mui/material/Container";
-import TableBody from "@mui/material/TableBody";
-import TableRow from "@mui/material/TableRow";
-import TableCell from "@mui/material/TableCell";
-import Checkbox from "@mui/material/Checkbox";
-import Button from "@mui/material/Button";
-import Typography from "@mui/material/Typography";
-import TableContainer from "@mui/material/TableContainer";
-import TablePagination from "@mui/material/TablePagination";
-import LinearProgress from "@mui/material/LinearProgress";
-import Avatar from "@mui/material/Avatar";
-import Dialog from "@mui/material/Dialog";
-import DialogTitle from "@mui/material/DialogTitle";
-import DialogContent from "@mui/material/DialogContent";
-import DialogActions from "@mui/material/DialogActions";
-import Divider from "@mui/material/Divider";
-import Box from "@mui/material/Box";
-import Grid from "@mui/material/Grid";
-import Paper from "@mui/material/Paper";
-import IconButton from "@mui/material/IconButton";
-import Tooltip from "@mui/material/Tooltip";
-import MenuItem from "@mui/material/MenuItem";
-import FormControl from "@mui/material/FormControl";
-import Select from "@mui/material/Select";
-import Snackbar from "@mui/material/Snackbar";
-import Alert from "@mui/material/Alert";
-import Scrollbar from "src/components/scrollbar";
-import TableNoData from "../table-no-data";
-import UserTableHead from "../user-table-head";
-import TableEmptyRows from "../table-empty-rows";
-import { emptyRows, getComparator } from "../utils";
+import { useState, useEffect } from "react";
 
-/* ---------------- STATUS CHIP ---------------- */
-const StatusChip = ({ status }) => {
-  const getColor = () => {
-    switch (status) {
-      case "PLACED": return "warning";
-      case "ACCEPTED": return "info";
-      case "COMPLETED": return "success";
-      case "REJECTED": return "error";
-      case "PROCESSING": return "info";
-      case "SHIPPED": return "primary";
-      case "DELIVERED": return "success";
-      case "CANCELLED": return "error";
-      default: return "default";
-    }
-  };
-  return <Chip label={status} color={getColor()} size="small" sx={{ fontWeight: 600, letterSpacing: 0.5 }} />;
+/* ─── DUMMY DATA ─────────────────────────────────────────── */
+const getDummyOrders = () => [
+  {
+    _id: "ORD001123456", totalAmount: 1250, status: "PLACED",
+    items: [{ name: "Wireless Mouse", quantity: 2, sellingPrice: 599 }, { name: "USB Keyboard", quantity: 1, sellingPrice: 1200 }],
+    trackingUpdates: [], adminModified: false,
+  },
+  {
+    _id: "ORD002789012", totalAmount: 3499, status: "SHIPPED",
+    items: [{ name: "Noise Cancelling Headphones", quantity: 1, sellingPrice: 3499 }],
+    trackingUpdates: [{ status: "Picked Up", location: "Mumbai Hub" }, { status: "In Transit", location: "Nagpur Depot" }],
+    adminModified: true,
+  },
+  {
+    _id: "ORD003345678", totalAmount: 799, status: "DELIVERED",
+    items: [{ name: "Phone Stand", quantity: 1, sellingPrice: 399 }, { name: "USB-C Cable", quantity: 2, sellingPrice: 200 }],
+    trackingUpdates: [{ status: "Delivered", location: "Customer Doorstep" }], adminModified: false,
+  },
+  {
+    _id: "ORD004901234", totalAmount: 12999, status: "CONFIRMED",
+    items: [{ name: "Mechanical Keyboard", quantity: 1, sellingPrice: 8999 }, { name: "Wrist Rest", quantity: 1, sellingPrice: 1500 }, { name: "Mousepad XL", quantity: 1, sellingPrice: 2500 }],
+    trackingUpdates: [], adminModified: false,
+  },
+  {
+    _id: "ORD005567890", totalAmount: 599, status: "CANCELLED",
+    items: [{ name: "Screen Protector", quantity: 3, sellingPrice: 199 }],
+    trackingUpdates: [], adminModified: false,
+  },
+  {
+    _id: "ORD006234567", totalAmount: 8499, status: "SHIPPED",
+    items: [{ name: "Smart Watch Series 9", quantity: 1, sellingPrice: 8499 }],
+    trackingUpdates: [{ status: "Dispatched", location: "Delhi Warehouse" }, { status: "Out for Delivery", location: "Ranchi Hub" }],
+    adminModified: true,
+  },
+  {
+    _id: "ORD007890123", totalAmount: 2199, status: "PLACED",
+    items: [{ name: "Portable Bluetooth Speaker", quantity: 1, sellingPrice: 1999 }, { name: "Speaker Case", quantity: 1, sellingPrice: 200 }],
+    trackingUpdates: [], adminModified: false,
+  },
+  {
+    _id: "ORD008456789", totalAmount: 4999, status: "CONFIRMED",
+    items: [{ name: "Graphics Drawing Tablet", quantity: 1, sellingPrice: 4999 }],
+    trackingUpdates: [], adminModified: false,
+  },
+  {
+    _id: "ORD009112233", totalAmount: 650, status: "DELIVERED",
+    items: [{ name: "HDMI Cable 2m", quantity: 2, sellingPrice: 250 }, { name: "Cable Management Clips", quantity: 1, sellingPrice: 150 }],
+    trackingUpdates: [{ status: "Out for Delivery", location: "Ranchi" }, { status: "Delivered", location: "Home" }],
+    adminModified: false,
+  },
+  {
+    _id: "ORD010998877", totalAmount: 17999, status: "SHIPPED",
+    items: [{ name: "4K Webcam Pro", quantity: 1, sellingPrice: 12999 }, { name: "LED Ring Light", quantity: 1, sellingPrice: 3500 }, { name: "Adjustable Mic Stand", quantity: 1, sellingPrice: 1500 }],
+    trackingUpdates: [{ status: "Picked Up", location: "Kolkata Hub" }, { status: "In Transit", location: "Asansol" }],
+    adminModified: true,
+  },
+  {
+    _id: "ORD011554433", totalAmount: 399, status: "PLACED",
+    items: [{ name: "Microfiber Cloth Pack", quantity: 5, sellingPrice: 79 }],
+    trackingUpdates: [], adminModified: false,
+  },
+  {
+    _id: "ORD012221100", totalAmount: 5299, status: "CONFIRMED",
+    items: [{ name: "External SSD 500GB", quantity: 1, sellingPrice: 5299 }],
+    trackingUpdates: [], adminModified: false,
+  },
+];
+
+/* ─── STATUS CONFIG ──────────────────────────────────────── */
+const STATUS_CONFIG = {
+  PLACED:    { bg: "#FFF8E1", color: "#F59E0B", border: "#FDE68A", dot: "#F59E0B" },
+  CONFIRMED: { bg: "#EFF6FF", color: "#3B82F6", border: "#BFDBFE", dot: "#3B82F6" },
+  SHIPPED:   { bg: "#F0F9FF", color: "#0EA5E9", border: "#BAE6FD", dot: "#0EA5E9" },
+  DELIVERED: { bg: "#F0FDF4", color: "#22C55E", border: "#BBF7D0", dot: "#22C55E" },
+  CANCELLED: { bg: "#FFF1F2", color: "#EF4444", border: "#FECDD3", dot: "#EF4444" },
 };
 
-/* ✅ NEW: PAYMENT STATUS CHIP */
-const PaymentStatusChip = ({ status }) => {
-  const getColor = () => {
-    switch (status) {
-      case "PAID": return "success";
-      case "PENDING": return "warning";
-      case "FAILED": return "error";
-      case "REFUNDED": return "info";
-      case "NOT_INITIATED": return "default";
-      default: return "default";
-    }
-  };
+/* ─── STATUS BADGE ───────────────────────────────────────── */
+const StatusBadge = ({ status }) => {
+  const cfg = STATUS_CONFIG[status] || { bg: "#F3F4F6", color: "#6B7280", border: "#E5E7EB", dot: "#6B7280" };
   return (
-    <Chip
-      label={status || "N/A"}
-      color={getColor()}
-      size="small"
-      sx={{ fontWeight: 700, fontSize: 11 }}
-    />
+    <span style={{
+      display: "inline-flex", alignItems: "center", gap: 5,
+      background: cfg.bg, color: cfg.color,
+      border: `1px solid ${cfg.border}`,
+      borderRadius: 20, padding: "3px 10px",
+      fontSize: 11, fontWeight: 600, fontFamily: "monospace",
+      letterSpacing: "0.4px", textTransform: "uppercase",
+      whiteSpace: "nowrap",
+    }}>
+      <span style={{ width: 6, height: 6, borderRadius: "50%", background: cfg.dot, display: "inline-block" }} />
+      {status}
+    </span>
   );
 };
 
-/* ✅ NEW: PAYMENT METHOD LABEL */
-const paymentMethodLabel = (method) => {
-  switch (method) {
-    case "cod": return "💵 Cash on Delivery";
-    case "upi": return "📱 UPI";
-    case "card": return "💳 Card";
-    default: return method || "N/A";
-  }
-};
-
-/* ---------------- INFO SECTION CARD ---------------- */
-const InfoCard = ({ title, icon, children }) => (
-  <Paper
-    elevation={0}
-    sx={{
-      p: 2.5,
-      borderRadius: 2,
-      border: "1px solid",
-      borderColor: "divider",
-      height: "100%",
-      background: "linear-gradient(145deg, #f9fafb 0%, #ffffff 100%)",
-    }}
+/* ─── STAT CARD ──────────────────────────────────────────── */
+const StatCard = ({ label, value, icon, accent }) => (
+  <div style={{
+    background: "#fff", borderRadius: 12, padding: "16px 20px",
+    border: "1px solid #E8EEF7", flex: 1, minWidth: 130,
+    display: "flex", alignItems: "center", gap: 14,
+    boxShadow: "0 1px 4px rgba(37,99,235,0.06)",
+    transition: "box-shadow 0.2s, transform 0.2s",
+  }}
+    onMouseEnter={e => { e.currentTarget.style.boxShadow = "0 4px 16px rgba(37,99,235,0.12)"; e.currentTarget.style.transform = "translateY(-1px)"; }}
+    onMouseLeave={e => { e.currentTarget.style.boxShadow = "0 1px 4px rgba(37,99,235,0.06)"; e.currentTarget.style.transform = "none"; }}
   >
-    <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1.5, display: "flex", alignItems: "center", gap: 0.5 }}>
-      <span>{icon}</span> {title}
-    </Typography>
-    {children}
-  </Paper>
+    <div style={{
+      width: 44, height: 44, borderRadius: 10, fontSize: 20,
+      background: accent + "14", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+    }}>{icon}</div>
+    <div>
+      <div style={{ fontSize: 11, color: "#94A3B8", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: 3 }}>{label}</div>
+      <div style={{ fontSize: 22, fontWeight: 800, color: "#1E3A5F", letterSpacing: "-0.5px" }}>{value}</div>
+    </div>
+  </div>
 );
 
-/* ---------------- TABLE ROW ---------------- */
-const OrderTableRow = ({ row, selected, handleClick, handleView, onStatusUpdate }) => {
-  const isSelected = selected.indexOf(row._id) !== -1;
-  const [updating, setUpdating] = useState(false);
-  const [currentStatus, setCurrentStatus] = useState(row.status);
-
-  const handleStatusChange = async (event) => {
-    const newStatus = event.target.value;
-    setUpdating(true);
-    await onStatusUpdate(row._id, newStatus, setCurrentStatus);
-    setUpdating(false);
-  };
-
-  return (
-    <TableRow hover selected={isSelected}>
-      <TableCell padding="checkbox">
-        <Checkbox checked={isSelected} onChange={(event) => handleClick(event, row._id)} />
-      </TableCell>
-      <TableCell>
-        <Typography variant="body2" fontWeight={700} color="primary.main">
-          #{row._id.slice(-6).toUpperCase()}
-        </Typography>
-        <Typography variant="caption" color="text.secondary">
-          {new Date(row.createdAt).toLocaleString("en-IN")}
-        </Typography>
-      </TableCell>
-      <TableCell>
-        <Typography variant="body2">{row.vendor?.businessName || "N/A"}</Typography>
-      </TableCell>
-      <TableCell>
-        {row.items?.slice(0, 2).map((item, i) => (
-          <Typography key={i} variant="caption" display="block" color="text.secondary">
-            {item.name} x{item.quantity}
-          </Typography>
-        ))}
-        {row.items?.length > 2 && (
-          <Typography variant="caption" color="primary">+ {row.items.length - 2} more items</Typography>
-        )}
-      </TableCell>
-      <TableCell>
-        <Typography variant="body2" fontWeight={600}>₹{row.totalAmount?.toFixed(2)}</Typography>
-      </TableCell>
-
-      {/* ✅ NEW: Payment column in table */}
-      <TableCell>
-        <Box>
-          <Typography variant="caption" color="text.secondary" display="block">
-            {paymentMethodLabel(row.paymentMethod)}
-          </Typography>
-          <PaymentStatusChip status={row.payment?.status} />
-        </Box>
-      </TableCell>
-
-      {/* ✅ UPDATED: Order Status with dropdown for manual update */}
-      <TableCell>
-        {updating ? (
-          <LinearProgress sx={{ width: 80 }} />
-        ) : (
-          <FormControl size="small" sx={{ minWidth: 120 }}>
-            <Select
-              value={currentStatus}
-              onChange={handleStatusChange}
-              variant="outlined"
-              sx={{
-                '& .MuiSelect-select': {
-                  py: 0.5,
-                  fontSize: '0.875rem',
-                }
-              }}
-            >
-              <MenuItem value="PLACED">PLACED</MenuItem>
-              <MenuItem value="PROCESSING">PROCESSING</MenuItem>
-              <MenuItem value="ACCEPTED">ACCEPTED</MenuItem>
-              <MenuItem value="SHIPPED">SHIPPED</MenuItem>
-              <MenuItem value="DELIVERED">DELIVERED</MenuItem>
-              <MenuItem value="COMPLETED">COMPLETED</MenuItem>
-              <MenuItem value="REJECTED">REJECTED</MenuItem>
-              <MenuItem value="CANCELLED">CANCELLED</MenuItem>
-            </Select>
-          </FormControl>
-        )}
-      </TableCell>
-      <TableCell>
-        <Button size="small" variant="outlined" onClick={() => handleView(row)}>View</Button>
-      </TableCell>
-    </TableRow>
-  );
-};
-
-/* ---------------- INVOICE PRINT STYLES ---------------- */
-const invoiceStyles = `
-  @media print {
-    body * { visibility: hidden !important; }
-    #invoice-print-area, #invoice-print-area * { visibility: visible !important; }
-    #invoice-print-area {
-      position: fixed !important;
-      top: 0; left: 0;
-      width: 100vw;
-      padding: 32px;
-      background: white;
-    }
-    .no-print { display: none !important; }
-  }
-`;
-
-/* ---------------- INVOICE COMPONENT ---------------- */
-const AdminInvoice = ({ order }) => {
-  if (!order) return null;
-  const invoiceNumber = `INV-${order._id.slice(-8).toUpperCase()}`;
-  const invoiceDate = new Date(order.createdAt).toLocaleDateString("en-IN", {
-    year: "numeric", month: "long", day: "numeric",
-  });
-  const subtotal = order.items?.reduce((sum, item) => sum + item.price * item.quantity, 0) || order.totalAmount;
-  const tax = 0;
-  const grandTotal = order.totalAmount;
-
-  return (
-    <Box id="invoice-print-area" sx={{ fontFamily: "'Georgia', serif", color: "#1a1a2e", background: "#fff", p: 4, minWidth: 600 }}>
-      {/* Header */}
-      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 4 }}>
-        <Box>
-          <Typography variant="h4" fontWeight={800} sx={{ color: "#1a1a2e", letterSpacing: -0.5 }}>PRINTSY</Typography>
-          <Typography variant="caption" color="text.secondary">Admin Order Invoice</Typography>
-        </Box>
-        <Box sx={{ textAlign: "right" }}>
-          <Typography variant="h6" fontWeight={700} sx={{ color: "#e63946" }}>INVOICE</Typography>
-          <Typography variant="body2" color="text.secondary">{invoiceNumber}</Typography>
-          <Typography variant="body2" color="text.secondary">Date: {invoiceDate}</Typography>
-          <Box sx={{ mt: 1 }}><StatusChip status={order.status} /></Box>
-        </Box>
-      </Box>
-
-      <Box sx={{ height: 3, background: "linear-gradient(90deg, #1a1a2e, #e63946)", borderRadius: 2, mb: 4 }} />
-
-      {/* Vendor + Customer */}
-      <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={6}>
-          <Typography variant="overline" color="text.secondary" fontSize={10}>Vendor / Seller</Typography>
-          <Typography variant="body1" fontWeight={700}>{order.vendor?.businessName || "N/A"}</Typography>
-          <Typography variant="body2" color="text.secondary">{order.vendor?.email}</Typography>
-          {order.vendor?.phone && <Typography variant="body2" color="text.secondary">📞 {order.vendor.phone}</Typography>}
-        </Grid>
-        <Grid item xs={6}>
-          <Typography variant="overline" color="text.secondary" fontSize={10}>Ship To / Customer</Typography>
-          <Typography variant="body1" fontWeight={700}>{order.shippingAddress?.name}</Typography>
-          <Typography variant="body2" color="text.secondary">{order.shippingAddress?.line1}</Typography>
-          {order.shippingAddress?.line2 && <Typography variant="body2" color="text.secondary">{order.shippingAddress.line2}</Typography>}
-          <Typography variant="body2" color="text.secondary">
-            {order.shippingAddress?.city}, {order.shippingAddress?.state} - {order.shippingAddress?.pincode}
-          </Typography>
-          <Typography variant="body2" color="text.secondary">📞 {order.shippingAddress?.phone}</Typography>
-        </Grid>
-      </Grid>
-
-      {/* Items Table */}
-      <Box sx={{ borderRadius: 2, overflow: "hidden", border: "1px solid #e0e0e0", mb: 3 }}>
-        <Box sx={{ display: "grid", gridTemplateColumns: "3fr 0.5fr 1fr 1fr", background: "#1a1a2e", color: "#fff", px: 2, py: 1.5 }}>
-          {["Item", "Qty", "Unit Price", "Total"].map((h) => (
-            <Typography key={h} variant="caption" fontWeight={700} sx={{ color: "#fff", letterSpacing: 1, textTransform: "uppercase", fontSize: 10 }}>{h}</Typography>
-          ))}
-        </Box>
-        {order.items?.map((item, index) => (
-          <Box key={index} sx={{ display: "grid", gridTemplateColumns: "3fr 0.5fr 1fr 1fr", px: 2, py: 1.5, borderBottom: index < order.items.length - 1 ? "1px solid #f0f0f0" : "none", background: index % 2 === 0 ? "#fafafa" : "#fff", alignItems: "center" }}>
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-              <Avatar src={item.image || item.product?.image || item.product?.images?.[0]} variant="rounded"
-                sx={{ width: 40, height: 40, bgcolor: "#1a1a2e", fontSize: 14, fontWeight: 700, flexShrink: 0, border: "1px solid #e0e0e0" }}>
-                {item.name?.charAt(0).toUpperCase()}
-              </Avatar>
-              <Box>
-                <Typography variant="body2" fontWeight={600}>{item.name}</Typography>
-                {item.product?.description && <Typography variant="caption" color="text.secondary">{item.product.description}</Typography>}
-                {item.sku && <Typography variant="caption" color="text.secondary" display="block">SKU: {item.sku}</Typography>}
-              </Box>
-            </Box>
-            <Typography variant="body2">{item.quantity}</Typography>
-            <Typography variant="body2">₹{item.price?.toFixed(2)}</Typography>
-            <Typography variant="body2" fontWeight={600}>₹{(item.price * item.quantity).toFixed(2)}</Typography>
-          </Box>
-        ))}
-      </Box>
-
-      {/* Totals */}
-      <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 4 }}>
-        <Box sx={{ width: 280 }}>
-          <Box sx={{ display: "flex", justifyContent: "space-between", py: 0.75 }}>
-            <Typography variant="body2" color="text.secondary">Subtotal</Typography>
-            <Typography variant="body2">₹{subtotal?.toFixed(2)}</Typography>
-          </Box>
-          <Box sx={{ display: "flex", justifyContent: "space-between", py: 0.75 }}>
-            <Typography variant="body2" color="text.secondary">Tax (GST)</Typography>
-            <Typography variant="body2">₹{tax.toFixed(2)}</Typography>
-          </Box>
-          {order.discount > 0 && (
-            <Box sx={{ display: "flex", justifyContent: "space-between", py: 0.75 }}>
-              <Typography variant="body2" color="success.main">Discount</Typography>
-              <Typography variant="body2" color="success.main">-₹{order.discount?.toFixed(2)}</Typography>
-            </Box>
-          )}
-          <Divider sx={{ my: 1 }} />
-          <Box sx={{ display: "flex", justifyContent: "space-between", py: 1, background: "#1a1a2e", borderRadius: 1.5, px: 1.5, mt: 1 }}>
-            <Typography variant="body1" fontWeight={800} color="#fff">Grand Total</Typography>
-            <Typography variant="body1" fontWeight={800} color="#e63946">₹{grandTotal?.toFixed(2)}</Typography>
-          </Box>
-        </Box>
-      </Box>
-
-      {/* ✅ UPDATED: Payment info in invoice with Razorpay IDs */}
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid item xs={4}>
-          <Typography variant="overline" color="text.secondary" fontSize={10}>Payment Method</Typography>
-          <Typography variant="body2" fontWeight={600}>{paymentMethodLabel(order.paymentMethod)}</Typography>
-        </Grid>
-        <Grid item xs={4}>
-          <Typography variant="overline" color="text.secondary" fontSize={10}>Payment Status</Typography>
-          <Typography variant="body2" fontWeight={600}>{order.payment?.status || "N/A"}</Typography>
-        </Grid>
-        <Grid item xs={4}>
-          <Typography variant="overline" color="text.secondary" fontSize={10}>Order ID</Typography>
-          <Typography variant="body2" fontWeight={600} color="primary.main">#{order._id}</Typography>
-        </Grid>
-        {order.payment?.razorpayPaymentId && (
-          <Grid item xs={12}>
-            <Typography variant="overline" color="text.secondary" fontSize={10}>Razorpay Payment ID</Typography>
-            <Typography variant="body2" fontWeight={600} sx={{ fontFamily: "monospace" }}>{order.payment.razorpayPaymentId}</Typography>
-          </Grid>
-        )}
-        {order.payment?.paidAt && (
-          <Grid item xs={6}>
-            <Typography variant="overline" color="text.secondary" fontSize={10}>Paid At</Typography>
-            <Typography variant="body2" fontWeight={600}>{new Date(order.payment.paidAt).toLocaleString("en-IN")}</Typography>
-          </Grid>
-        )}
-      </Grid>
-
-      <Box sx={{ height: 1, background: "#e0e0e0", mb: 2 }} />
-      <Typography variant="caption" color="text.secondary" sx={{ display: "block", textAlign: "center" }}>
-        This is a system-generated admin invoice. — Printsy Platform © {new Date().getFullYear()}
-      </Typography>
-    </Box>
-  );
-};
-
-/* ---------------- DUMMY DATA ---------------- */
-const getDummyOrders = () => {
-  return [
-    {
-      _id: "ORD00123456789",
-      createdAt: "2024-01-15T10:30:00.000Z",
-      updatedAt: "2024-01-16T14:20:00.000Z",
-      status: "DELIVERED",
-      totalAmount: 2499.00,
-      discount: 0,
-      deliveryCharge: 49,
-      paymentMethod: "upi",
-      deliveryType: "Express",
-      estimatedDelivery: "2024-01-18",
-      trackingId: "TRK123456789",
-      courier: "BlueDart",
-      deliveryNotes: "Handle with care",
-      notes: "Please deliver before 5 PM",
-      vendor: {
-        businessName: "PrintMaster Solutions",
-        email: "vendor1@printmaster.com",
-        phone: "+91 9876543210",
-        address: "123 Industrial Area, Delhi"
-      },
-      shippingAddress: {
-        name: "Rajesh Kumar",
-        line1: "45, Green Park Extension",
-        line2: "Near Metro Station",
-        city: "New Delhi",
-        state: "Delhi",
-        pincode: "110016",
-        phone: "+91 9988776655"
-      },
-      items: [
-        {
-          name: "Premium Business Cards",
-          quantity: 2,
-          price: 899.50,
-          sku: "BC-PRM-001",
-          variant: "Matte Finish",
-          image: null
-        },
-        {
-          name: "A4 Brochure Printing",
-          quantity: 1,
-          price: 700.00,
-          sku: "BR-A4-002",
-          variant: "Glossy",
-          image: null
-        }
-      ],
-      payment: {
-        status: "PAID",
-        razorpayPaymentId: "pay_XYZ123456789",
-        razorpayOrderId: "order_ABC987654321",
-        paidAt: "2024-01-15T10:35:00.000Z"
-      }
-    },
-    {
-      _id: "ORD00234567890",
-      createdAt: "2024-01-16T15:45:00.000Z",
-      updatedAt: "2024-01-17T09:15:00.000Z",
-      status: "PROCESSING",
-      totalAmount: 1599.00,
-      discount: 100,
-      deliveryCharge: 0,
-      paymentMethod: "card",
-      deliveryType: "Standard",
-      estimatedDelivery: "2024-01-22",
-      trackingId: "TRK234567890",
-      courier: "DTDC",
-      deliveryNotes: null,
-      notes: "Gift wrapping required",
-      vendor: {
-        businessName: "Creative Prints Hub",
-        email: "vendor2@creativeprints.com",
-        phone: "+91 8765432109",
-        address: "456 Business Park, Mumbai"
-      },
-      shippingAddress: {
-        name: "Priya Sharma",
-        line1: "789, Andheri West",
-        line2: "Near Lokhandwala",
-        city: "Mumbai",
-        state: "Maharashtra",
-        pincode: "400053",
-        phone: "+91 8877665544"
-      },
-      items: [
-        {
-          name: "Custom Stickers Pack",
-          quantity: 50,
-          price: 20.00,
-          sku: "STK-CST-003",
-          variant: "Waterproof",
-          image: null
-        },
-        {
-          name: "Flyer Printing A5",
-          quantity: 100,
-          price: 5.99,
-          sku: "FLY-A5-004",
-          variant: "Uncoated",
-          image: null
-        }
-      ],
-      payment: {
-        status: "PAID",
-        razorpayPaymentId: "pay_DEF456789012",
-        razorpayOrderId: "order_GHI123456789",
-        paidAt: "2024-01-16T15:50:00.000Z"
-      }
-    },
-    {
-      _id: "ORD00345678901",
-      createdAt: "2024-01-17T09:20:00.000Z",
-      updatedAt: "2024-01-17T09:20:00.000Z",
-      status: "PLACED",
-      totalAmount: 3499.00,
-      discount: 200,
-      deliveryCharge: 99,
-      paymentMethod: "cod",
-      deliveryType: "Standard",
-      estimatedDelivery: "2024-01-24",
-      trackingId: null,
-      courier: null,
-      deliveryNotes: null,
-      notes: null,
-      vendor: {
-        businessName: "Sign & Display Co.",
-        email: "vendor3@signdisplay.com",
-        phone: "+91 7654321098",
-        address: "789 Commercial Street, Bangalore"
-      },
-      shippingAddress: {
-        name: "Amit Patel",
-        line1: "321, Indiranagar",
-        line2: "100 Feet Road",
-        city: "Bangalore",
-        state: "Karnataka",
-        pincode: "560038",
-        phone: "+91 9988332211"
-      },
-      items: [
-        {
-          name: "Vinyl Banner 3x6 ft",
-          quantity: 1,
-          price: 3499.00,
-          sku: "BNR-VNL-005",
-          variant: "Matte",
-          image: null
-        }
-      ],
-      payment: {
-        status: "PENDING",
-        razorpayPaymentId: null,
-        razorpayOrderId: null,
-        paidAt: null
-      }
-    },
-    {
-      _id: "ORD00456789012",
-      createdAt: "2024-01-14T11:00:00.000Z",
-      updatedAt: "2024-01-15T16:30:00.000Z",
-      status: "SHIPPED",
-      totalAmount: 599.00,
-      discount: 0,
-      deliveryCharge: 40,
-      paymentMethod: "upi",
-      deliveryType: "Express",
-      estimatedDelivery: "2024-01-17",
-      trackingId: "TRK345678901",
-      courier: "Amazon Shipping",
-      deliveryNotes: "Fragile items",
-      notes: null,
-      vendor: {
-        businessName: "Photo Prints Express",
-        email: "vendor4@photoprints.com",
-        phone: "+91 9876501234",
-        address: "321 Photo Lane, Chennai"
-      },
-      shippingAddress: {
-        name: "Divya Srinivasan",
-        line1: "567, Adyar",
-        line2: "Near Beach",
-        city: "Chennai",
-        state: "Tamil Nadu",
-        pincode: "600020",
-        phone: "+91 7766554433"
-      },
-      items: [
-        {
-          name: "Photo Prints 4x6",
-          quantity: 50,
-          price: 8.00,
-          sku: "PH-4X6-006",
-          variant: "Glossy",
-          image: null
-        },
-        {
-          name: "Canvas Print 12x18",
-          quantity: 1,
-          price: 199.00,
-          sku: "CVS-12X18-007",
-          variant: "Gallery Wrap",
-          image: null
-        }
-      ],
-      payment: {
-        status: "PAID",
-        razorpayPaymentId: "pay_JKL789012345",
-        razorpayOrderId: "order_MNO456789012",
-        paidAt: "2024-01-14T11:05:00.000Z"
-      }
-    },
-    {
-      _id: "ORD00567890123",
-      createdAt: "2024-01-13T14:30:00.000Z",
-      updatedAt: "2024-01-14T10:00:00.000Z",
-      status: "CANCELLED",
-      totalAmount: 899.00,
-      discount: 0,
-      deliveryCharge: 0,
-      paymentMethod: "card",
-      deliveryType: "Standard",
-      estimatedDelivery: null,
-      trackingId: null,
-      courier: null,
-      deliveryNotes: null,
-      notes: "Customer requested cancellation",
-      vendor: {
-        businessName: "Packaging Solutions",
-        email: "vendor5@packaging.com",
-        phone: "+91 9988776655",
-        address: "987 Industrial Estate, Pune"
-      },
-      shippingAddress: {
-        name: "Suresh Nair",
-        line1: "123, Koregaon Park",
-        line2: null,
-        city: "Pune",
-        state: "Maharashtra",
-        pincode: "411001",
-        phone: "+91 8899776655"
-      },
-      items: [
-        {
-          name: "Custom Box Packaging",
-          quantity: 25,
-          price: 35.96,
-          sku: "BOX-CST-008",
-          variant: "Eco-friendly",
-          image: null
-        }
-      ],
-      payment: {
-        status: "REFUNDED",
-        razorpayPaymentId: "pay_PQR123456789",
-        razorpayOrderId: "order_STU987654321",
-        paidAt: "2024-01-13T14:35:00.000Z"
-      }
-    }
-  ];
-};
-
-/* ---------------- MAIN PAGE ---------------- */
+/* ─── MAIN COMPONENT ─────────────────────────────────────── */
 export default function OrdersPage() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
-  const [selected, setSelected] = useState([]);
-  const [order, setOrder] = useState("desc");
-  const [orderBy, setOrderBy] = useState("createdAt");
-  const [open, setOpen] = useState(false);
-  const [selectedOrder, setSelectedOrder] = useState(null);
-  const [invoiceOpen, setInvoiceOpen] = useState(false);
   const [usingDummyData, setUsingDummyData] = useState(false);
-  
-  // ✅ NEW: Snackbar state for notifications
-  const [snackbar, setSnackbar] = useState({
-    open: false,
-    message: "",
-    severity: "success"
-  });
+  const [filterStatus, setFilterStatus] = useState("ALL");
+  const [search, setSearch] = useState("");
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [trackingStatus, setTrackingStatus] = useState("");
+  const [trackingLocation, setTrackingLocation] = useState("");
+  const [toast, setToast] = useState(null);
 
-  const handleView = (order) => { setSelectedOrder(order); setOpen(true); };
-  const handleClose = () => { setOpen(false); setSelectedOrder(null); };
-  const handlePrintInvoice = () => window.print();
-  const handleOpenInvoice = () => { setOpen(false); setInvoiceOpen(true); };
-
-  // ✅ NEW: Function to update order status
-  const handleStatusUpdate = async (orderId, newStatus, setCurrentStatus) => {
-    try {
-      const token = localStorage.getItem("token");
-      const response = await axios.put(
-        `http://localhost:8000/api/order/admin/update-status/${orderId}`,
-        { status: newStatus },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-
-      if (response.data.success) {
-        // Update local state
-        setOrders(prevOrders => 
-          prevOrders.map(order => 
-            order._id === orderId 
-              ? { ...order, status: newStatus }
-              : order
-          )
-        );
-        
-        // Update selected order if it's the one being modified
-        if (selectedOrder && selectedOrder._id === orderId) {
-          setSelectedOrder(prev => ({ ...prev, status: newStatus }));
-        }
-        
-        // Update current status in the row
-        if (setCurrentStatus) {
-          setCurrentStatus(newStatus);
-        }
-        
-        // Show success message
-        setSnackbar({
-          open: true,
-          message: `Order status updated to ${newStatus} successfully!`,
-          severity: "success"
-        });
-      } else {
-        throw new Error(response.data.message || "Failed to update status");
-      }
-    } catch (error) {
-      console.error("Error updating order status:", error);
-      
-      // If using dummy data, just update locally without API call
-      if (usingDummyData) {
-        setOrders(prevOrders => 
-          prevOrders.map(order => 
-            order._id === orderId 
-              ? { ...order, status: newStatus }
-              : order
-          )
-        );
-        
-        if (selectedOrder && selectedOrder._id === orderId) {
-          setSelectedOrder(prev => ({ ...prev, status: newStatus }));
-        }
-        
-        if (setCurrentStatus) {
-          setCurrentStatus(newStatus);
-        }
-        
-        setSnackbar({
-          open: true,
-          message: `Order status updated to ${newStatus} (Demo Mode)`,
-          severity: "success"
-        });
-      } else {
-        setSnackbar({
-          open: true,
-          message: error.response?.data?.message || "Failed to update order status",
-          severity: "error"
-        });
-      }
-    }
-  };
-
-  // ✅ NEW: Function to update status from dialog
-  const handleDialogStatusUpdate = async (newStatus) => {
-    if (!selectedOrder) return;
-    await handleStatusUpdate(selectedOrder._id, newStatus, null);
-    // Refresh the selected order data
-    setSelectedOrder(prev => ({ ...prev, status: newStatus }));
-  };
-
+  /* FETCH */
   useEffect(() => {
     const fetchOrders = async () => {
       try {
         const token = localStorage.getItem("token");
         const res = await axios.get("http://localhost:8000/api/order/admin/all", {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: { Authorization: `Bearer ${token}` }, timeout: 5000,
         });
-        if (res.data.success && res.data.orders && res.data.orders.length > 0) {
-          setOrders(res.data.orders);
-          setUsingDummyData(false);
-          setSnackbar({
-            open: true,
-            message: `Loaded ${res.data.orders.length} orders from server`,
-            severity: "success"
-          });
-        } else {
-          // If API returns empty array, use dummy data
-          const dummyOrders = getDummyOrders();
-          setOrders(dummyOrders);
-          setUsingDummyData(true);
-          setSnackbar({
-            open: true,
-            message: `Using demo data (${dummyOrders.length} orders) - API returned no data`,
-            severity: "info"
-          });
-        }
-      } catch (err) {
-        console.error("Error fetching orders:", err);
-        // Use dummy data when API fails
-        const dummyOrders = getDummyOrders();
-        setOrders(dummyOrders);
+        if (res.data.orders?.length) { setOrders(res.data.orders); setUsingDummyData(false); }
+        else throw new Error("Empty");
+      } catch {
+        setOrders(getDummyOrders());
         setUsingDummyData(true);
-        setSnackbar({
-          open: true,
-          message: `Using demo data (${dummyOrders.length} orders) - Unable to connect to server`,
-          severity: "warning"
-        });
-      } finally {
-        setLoading(false);
-      }
+      } finally { setLoading(false); }
     };
     fetchOrders();
   }, []);
 
-  const comparator = getComparator(order, orderBy);
-  const dataFiltered = useMemo(() => [...orders].sort(comparator), [orders, comparator]);
-
-  const handleSelectAllClick = (event) => {
-    if (event.target.checked) setSelected(orders.map((n) => n._id));
-    else setSelected([]);
+  /* TOAST */
+  const showToast = (message, error = false) => {
+    setToast({ message, error });
+    setTimeout(() => setToast(null), 2800);
   };
 
-  const handleClick = (event, id) => {
-    const selectedIndex = selected.indexOf(id);
-    let newSelected = [];
-    if (selectedIndex === -1) newSelected = [...selected, id];
-    else newSelected = selected.filter((item) => item !== id);
-    setSelected(newSelected);
-  };
-
-  // ✅ NEW: Bulk status update function
-  const handleBulkStatusUpdate = async (newStatus) => {
-    if (selected.length === 0) {
-      setSnackbar({
-        open: true,
-        message: "Please select at least one order",
-        severity: "warning"
-      });
+  /* STATUS UPDATE */
+  const handleStatusUpdate = async (id, status) => {
+    if (usingDummyData) {
+      setOrders(prev => prev.map(o => o._id === id ? { ...o, status } : o));
+      showToast("Status updated to " + status);
       return;
     }
-
     try {
       const token = localStorage.getItem("token");
-      const promises = selected.map(orderId =>
-        axios.put(
-          `http://localhost:8000/api/order/admin/update-status/${orderId}`,
-          { status: newStatus },
-          { headers: { Authorization: `Bearer ${token}` } }
-        )
-      );
+      await axios.put(`http://localhost:8000/api/order/admin/${id}/status`, { status }, { headers: { Authorization: `Bearer ${token}` } });
+      setOrders(prev => prev.map(o => o._id === id ? { ...o, status } : o));
+      showToast("Status updated to " + status);
+    } catch { showToast("Status update failed", true); }
+  };
 
-      await Promise.all(promises);
-      
-      // Update local state
-      setOrders(prevOrders =>
-        prevOrders.map(order =>
-          selected.includes(order._id)
-            ? { ...order, status: newStatus }
-            : order
-        )
-      );
-      
-      setSelected([]);
-      setSnackbar({
-        open: true,
-        message: `${selected.length} order(s) updated to ${newStatus}`,
-        severity: "success"
-      });
-    } catch (error) {
-      console.error("Error bulk updating orders:", error);
-      
-      // If using dummy data or API fails, update locally
-      if (usingDummyData) {
-        setOrders(prevOrders =>
-          prevOrders.map(order =>
-            selected.includes(order._id)
-              ? { ...order, status: newStatus }
-              : order
-          )
-        );
-        setSelected([]);
-        setSnackbar({
-          open: true,
-          message: `${selected.length} order(s) updated to ${newStatus} (Demo Mode)`,
-          severity: "success"
-        });
-      } else {
-        setSnackbar({
-          open: true,
-          message: "Failed to update some orders",
-          severity: "error"
-        });
-      }
+  /* TRACKING */
+  const handleAddTracking = async () => {
+    if (!trackingStatus.trim() || !trackingLocation.trim()) return;
+    const newEntry = { status: trackingStatus, location: trackingLocation, updatedAt: new Date() };
+    if (usingDummyData) {
+      const updated = { ...selectedOrder, trackingUpdates: [...(selectedOrder.trackingUpdates || []), newEntry] };
+      setSelectedOrder(updated);
+      setOrders(prev => prev.map(o => o._id === updated._id ? updated : o));
+      setTrackingStatus(""); setTrackingLocation("");
+      showToast("Tracking update added");
+      return;
     }
+    try {
+      const token = localStorage.getItem("token");
+      const res = await axios.post(`http://localhost:8000/api/order/admin/${selectedOrder._id}/tracking`,
+        { status: trackingStatus, location: trackingLocation },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setSelectedOrder(res.data.order);
+      setTrackingStatus(""); setTrackingLocation("");
+      showToast("Tracking update added");
+    } catch { showToast("Failed to add tracking", true); }
   };
 
-  const handleCloseSnackbar = () => {
-    setSnackbar(prev => ({ ...prev, open: false }));
+  /* FILTER */
+  const filtered = orders.filter(o => {
+    const matchStatus = filterStatus === "ALL" || o.status === filterStatus;
+    const q = search.toLowerCase();
+    const matchSearch = !q || o._id.toLowerCase().includes(q) || o.items.some(i => i.name.toLowerCase().includes(q));
+    return matchStatus && matchSearch;
+  });
+
+  /* STATS */
+  const counts = { PLACED: 0, CONFIRMED: 0, SHIPPED: 0, DELIVERED: 0, CANCELLED: 0 };
+  let totalRevenue = 0;
+  orders.forEach(o => { counts[o.status]++; if (o.status !== "CANCELLED") totalRevenue += o.totalAmount; });
+
+  const inputStyle = {
+    width: "100%", border: "1.5px solid #E2EAF4", borderRadius: 8,
+    padding: "9px 12px", fontSize: 13, color: "#1E3A5F",
+    background: "#F8FAFD", outline: "none", fontFamily: "inherit",
+    transition: "border-color 0.2s",
   };
+  const labelStyle = { fontSize: 11, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: 5, display: "block" };
 
   return (
-    <Container maxWidth="xl">
-      <style>{invoiceStyles}</style>
+    <div style={{ minHeight: "100vh", background: "#F4F7FC", fontFamily: "'Nunito', 'Segoe UI', sans-serif" }}>
 
-      <Stack direction="row" alignItems="center" justifyContent="space-between" mb={3}>
-        <Typography variant="h4" fontWeight={700}>
-          Orders Management
-          {usingDummyData && (
-            <Chip 
-              label="Demo Mode" 
-              color="warning" 
-              size="small" 
-              sx={{ ml: 2, verticalAlign: "middle" }} 
-            />
+      {/* ─── HEADER ─── */}
+      <div style={{
+        background: "#fff", borderBottom: "1px solid #E8EEF7",
+        padding: "18px 32px", display: "flex", alignItems: "center",
+        justifyContent: "space-between", position: "sticky", top: 0, zIndex: 50,
+        boxShadow: "0 1px 8px rgba(37,99,235,0.06)",
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{
+            width: 36, height: 36, borderRadius: 10,
+            background: "linear-gradient(135deg, #2563EB, #60A5FA)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 18, boxShadow: "0 2px 8px rgba(37,99,235,0.25)",
+          }}>📦</div>
+          <div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: "#1E3A5F", letterSpacing: "-0.3px" }}>Order Management</div>
+            <div style={{ fontSize: 11, color: "#94A3B8", fontWeight: 600 }}>
+              {orders.length} total orders
+              {usingDummyData && <span style={{ marginLeft: 8, color: "#F59E0B", background: "#FFF8E1", border: "1px solid #FDE68A", borderRadius: 4, padding: "1px 6px", fontSize: 10 }}>DEMO DATA</span>}
+            </div>
+          </div>
+        </div>
+        <button style={{
+          background: "linear-gradient(135deg, #2563EB, #3B82F6)",
+          color: "#fff", border: "none", borderRadius: 9, padding: "9px 18px",
+          fontSize: 13, fontWeight: 700, cursor: "pointer",
+          boxShadow: "0 2px 8px rgba(37,99,235,0.3)", display: "flex", alignItems: "center", gap: 6,
+        }}>
+          + Export Orders
+        </button>
+      </div>
+
+      <div style={{ padding: "24px 32px", maxWidth: 1400, margin: "0 auto" }}>
+
+        {/* ─── STATS ─── */}
+        <div style={{ display: "flex", gap: 12, marginBottom: 24, flexWrap: "wrap" }}>
+          <StatCard label="Total Orders" value={orders.length} icon="📦" accent="#2563EB" />
+          <StatCard label="Revenue" value={"₹" + totalRevenue.toLocaleString()} icon="💰" accent="#22C55E" />
+          <StatCard label="Shipped" value={counts.SHIPPED} icon="🚚" accent="#0EA5E9" />
+          <StatCard label="Delivered" value={counts.DELIVERED} icon="✅" accent="#22C55E" />
+          <StatCard label="Pending" value={counts.PLACED + counts.CONFIRMED} icon="⏳" accent="#F59E0B" />
+          <StatCard label="Cancelled" value={counts.CANCELLED} icon="❌" accent="#EF4444" />
+        </div>
+
+        {/* ─── FILTER & SEARCH ─── */}
+        <div style={{
+          background: "#fff", border: "1px solid #E8EEF7", borderRadius: 12,
+          padding: "16px 20px", marginBottom: 16,
+          display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12,
+          boxShadow: "0 1px 4px rgba(37,99,235,0.05)",
+        }}>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            {["ALL", "PLACED", "CONFIRMED", "SHIPPED", "DELIVERED", "CANCELLED"].map(s => (
+              <button key={s} onClick={() => setFilterStatus(s)} style={{
+                padding: "6px 14px", borderRadius: 8, fontSize: 12, fontWeight: 700,
+                cursor: "pointer", border: "1.5px solid",
+                borderColor: filterStatus === s ? "#2563EB" : "#E2EAF4",
+                background: filterStatus === s ? "#EFF6FF" : "transparent",
+                color: filterStatus === s ? "#2563EB" : "#94A3B8",
+                transition: "all 0.15s",
+              }}>
+                {s === "ALL" ? `All (${orders.length})` : `${s} (${counts[s] ?? 0})`}
+              </button>
+            ))}
+          </div>
+          <input
+            value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="🔍  Search by order ID or item..."
+            style={{ ...inputStyle, width: 260, background: "#F8FAFD" }}
+            onFocus={e => e.target.style.borderColor = "#2563EB"}
+            onBlur={e => e.target.style.borderColor = "#E2EAF4"}
+          />
+        </div>
+
+        {/* ─── TABLE ─── */}
+        <div style={{
+          background: "#fff", borderRadius: 14, border: "1px solid #E8EEF7",
+          overflow: "hidden", boxShadow: "0 1px 8px rgba(37,99,235,0.06)",
+        }}>
+          {/* Table Head */}
+          <div style={{
+            display: "grid", gridTemplateColumns: "130px 1fr 120px 150px 180px 100px",
+            padding: "12px 20px", background: "#F8FAFD",
+            borderBottom: "1.5px solid #E8EEF7",
+            fontSize: 11, fontWeight: 700, color: "#94A3B8",
+            textTransform: "uppercase", letterSpacing: "0.8px",
+          }}>
+            <div>Order ID</div><div>Items</div><div>Amount</div>
+            <div>Status</div><div>Update Status</div><div>Actions</div>
+          </div>
+
+          {/* Loading bar */}
+          {loading && (
+            <div style={{ height: 3, background: "#EFF6FF", position: "relative", overflow: "hidden" }}>
+              <div style={{
+                position: "absolute", inset: 0,
+                background: "linear-gradient(90deg, transparent, #2563EB, transparent)",
+                animation: "shimmer 1.4s infinite",
+              }} />
+            </div>
           )}
-        </Typography>
-        <Chip label={`Total: ${orders.length}`} color="primary" variant="outlined" />
-      </Stack>
 
-      {/* ✅ NEW: Bulk Action Bar */}
-      {selected.length > 0 && (
-        <Paper sx={{ p: 2, mb: 3, bgcolor: "#f5f5f5", display: "flex", alignItems: "center", gap: 2 }}>
-          <Typography variant="body2" fontWeight={600}>
-            {selected.length} order(s) selected
-          </Typography>
-          <FormControl size="small" sx={{ minWidth: 150 }}>
-            <Select
-              defaultValue=""
-              displayEmpty
-              onChange={(e) => handleBulkStatusUpdate(e.target.value)}
-            >
-              <MenuItem value="" disabled>Update Status</MenuItem>
-              <MenuItem value="PLACED">PLACED</MenuItem>
-              <MenuItem value="PROCESSING">PROCESSING</MenuItem>
-              <MenuItem value="ACCEPTED">ACCEPTED</MenuItem>
-              <MenuItem value="SHIPPED">SHIPPED</MenuItem>
-              <MenuItem value="DELIVERED">DELIVERED</MenuItem>
-              <MenuItem value="COMPLETED">COMPLETED</MenuItem>
-              <MenuItem value="REJECTED">REJECTED</MenuItem>
-              <MenuItem value="CANCELLED">CANCELLED</MenuItem>
-            </Select>
-          </FormControl>
-          <Button size="small" onClick={() => setSelected([])}>Clear Selection</Button>
-        </Paper>
+          {/* Rows */}
+          {filtered.length === 0 && !loading ? (
+            <div style={{ padding: "60px 20px", textAlign: "center", color: "#94A3B8", fontSize: 14 }}>
+              <div style={{ fontSize: 36, marginBottom: 10 }}>📭</div>
+              No orders found
+            </div>
+          ) : filtered.map((row, i) => {
+            const mainItem = row.items[0];
+            const extraCount = row.items.length - 1;
+            return (
+              <div key={row._id} style={{
+                display: "grid", gridTemplateColumns: "130px 1fr 120px 150px 180px 100px",
+                padding: "14px 20px", alignItems: "center",
+                borderBottom: i < filtered.length - 1 ? "1px solid #F1F5FA" : "none",
+                transition: "background 0.15s",
+                animationDelay: `${i * 0.04}s`,
+              }}
+                onMouseEnter={e => e.currentTarget.style.background = "#F8FAFD"}
+                onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+              >
+                {/* ID */}
+                <div style={{ fontFamily: "monospace", fontSize: 13, color: "#2563EB", fontWeight: 700 }}>
+                  #{row._id.slice(-6)}
+                </div>
+
+                {/* Items */}
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "#1E3A5F" }}>{mainItem.name}</div>
+                  {extraCount > 0 && (
+                    <div style={{ fontSize: 11, color: "#94A3B8", marginTop: 2 }}>
+                      +{extraCount} more item{extraCount > 1 ? "s" : ""}
+                    </div>
+                  )}
+                </div>
+
+                {/* Amount */}
+                <div style={{ fontFamily: "monospace", fontSize: 14, fontWeight: 700, color: "#1E3A5F" }}>
+                  ₹{row.totalAmount.toLocaleString()}
+                </div>
+
+                {/* Status Badge */}
+                <div><StatusBadge status={row.status} /></div>
+
+                {/* Select */}
+                <div>
+                  <select
+                    value={row.status}
+                    onChange={e => handleStatusUpdate(row._id, e.target.value)}
+                    style={{
+                      border: "1.5px solid #E2EAF4", borderRadius: 8, padding: "6px 10px",
+                      fontSize: 12, fontWeight: 600, color: "#1E3A5F", background: "#F8FAFD",
+                      cursor: "pointer", outline: "none", fontFamily: "inherit",
+                    }}
+                  >
+                    {["PLACED", "CONFIRMED", "SHIPPED", "DELIVERED", "CANCELLED"].map(s => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* View Button */}
+                <div>
+                  <button onClick={() => { setSelectedOrder(row); setModalOpen(true); }} style={{
+                    background: "transparent", border: "1.5px solid #BFDBFE",
+                    color: "#2563EB", borderRadius: 8, padding: "6px 14px",
+                    fontSize: 12, fontWeight: 700, cursor: "pointer",
+                    transition: "all 0.15s",
+                  }}
+                    onMouseEnter={e => { e.currentTarget.style.background = "#EFF6FF"; e.currentTarget.style.borderColor = "#2563EB"; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = "#BFDBFE"; }}
+                  >
+                    View →
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ─── MODAL ─── */}
+      {modalOpen && selectedOrder && (
+        <div
+          onClick={() => setModalOpen(false)}
+          style={{
+            position: "fixed", inset: 0, background: "rgba(15,30,60,0.45)",
+            backdropFilter: "blur(4px)", zIndex: 200,
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: "#fff", borderRadius: 18, width: 560, maxHeight: "85vh",
+              overflowY: "auto", boxShadow: "0 24px 64px rgba(15,30,60,0.2)",
+              border: "1px solid #E8EEF7",
+            }}
+          >
+            {/* Modal Header */}
+            <div style={{
+              padding: "22px 24px 18px", borderBottom: "1px solid #F1F5FA",
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              position: "sticky", top: 0, background: "#fff", borderRadius: "18px 18px 0 0",
+            }}>
+              <div>
+                <div style={{ fontSize: 11, color: "#94A3B8", fontWeight: 700, textTransform: "uppercase", letterSpacing: "1px", marginBottom: 4 }}>Order Details</div>
+                <div style={{ fontSize: 17, fontWeight: 800, color: "#1E3A5F" }}>
+                  #{selectedOrder._id}
+                </div>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <StatusBadge status={selectedOrder.status} />
+                <button onClick={() => setModalOpen(false)} style={{
+                  width: 32, height: 32, borderRadius: 8, border: "1.5px solid #E2EAF4",
+                  background: "#F8FAFD", color: "#94A3B8", cursor: "pointer", fontSize: 16,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                }}>✕</button>
+              </div>
+            </div>
+
+            <div style={{ padding: "20px 24px 24px" }}>
+              {/* Items */}
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: 10 }}>Items Ordered</div>
+              <div style={{ border: "1px solid #E8EEF7", borderRadius: 10, overflow: "hidden", marginBottom: 20 }}>
+                {selectedOrder.items.map((item, i) => (
+                  <div key={i} style={{
+                    display: "flex", justifyContent: "space-between", alignItems: "center",
+                    padding: "12px 16px",
+                    borderBottom: i < selectedOrder.items.length - 1 ? "1px solid #F1F5FA" : "none",
+                    background: i % 2 === 0 ? "#fff" : "#FAFBFF",
+                  }}>
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: "#1E3A5F" }}>{item.name}</div>
+                      <div style={{ fontSize: 11, color: "#94A3B8", marginTop: 2 }}>Qty: {item.quantity}</div>
+                    </div>
+                    <div style={{ fontFamily: "monospace", fontSize: 14, fontWeight: 700, color: "#2563EB" }}>
+                      ₹{(item.sellingPrice * item.quantity).toLocaleString()}
+                    </div>
+                  </div>
+                ))}
+                <div style={{
+                  padding: "12px 16px", background: "#EFF6FF",
+                  display: "flex", justifyContent: "space-between",
+                  borderTop: "1.5px solid #BFDBFE",
+                }}>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: "#1E3A5F" }}>Total</div>
+                  <div style={{ fontFamily: "monospace", fontSize: 15, fontWeight: 800, color: "#2563EB" }}>
+                    ₹{selectedOrder.totalAmount.toLocaleString()}
+                  </div>
+                </div>
+              </div>
+
+              {/* Tracking Section */}
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: 12 }}>Tracking Updates</div>
+
+              {/* Add Tracking */}
+              <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+                <div style={{ flex: 1 }}>
+                  <input
+                    placeholder="Status (e.g. Dispatched)"
+                    value={trackingStatus}
+                    onChange={e => setTrackingStatus(e.target.value)}
+                    style={{ ...inputStyle }}
+                    onFocus={e => e.target.style.borderColor = "#2563EB"}
+                    onBlur={e => e.target.style.borderColor = "#E2EAF4"}
+                  />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <input
+                    placeholder="Location"
+                    value={trackingLocation}
+                    onChange={e => setTrackingLocation(e.target.value)}
+                    style={{ ...inputStyle }}
+                    onFocus={e => e.target.style.borderColor = "#2563EB"}
+                    onBlur={e => e.target.style.borderColor = "#E2EAF4"}
+                  />
+                </div>
+                <button onClick={handleAddTracking} style={{
+                  background: "linear-gradient(135deg, #2563EB, #3B82F6)",
+                  color: "#fff", border: "none", borderRadius: 8,
+                  padding: "0 16px", fontSize: 13, fontWeight: 700,
+                  cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0,
+                  boxShadow: "0 2px 6px rgba(37,99,235,0.25)",
+                }}>
+                  + Add
+                </button>
+              </div>
+
+              {/* Tracking History */}
+              {selectedOrder.trackingUpdates?.length > 0 ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {selectedOrder.trackingUpdates.map((t, i) => (
+                    <div key={i} style={{
+                      display: "flex", alignItems: "center", gap: 10,
+                      padding: "10px 14px", borderRadius: 8,
+                      background: "#F8FAFD", border: "1px solid #E8EEF7",
+                    }}>
+                      <div style={{
+                        width: 8, height: 8, borderRadius: "50%",
+                        background: "#2563EB", flexShrink: 0,
+                        boxShadow: "0 0 0 3px rgba(37,99,235,0.15)",
+                      }} />
+                      <div style={{ fontSize: 13, fontWeight: 700, color: "#2563EB", flex: 1 }}>{t.status}</div>
+                      <div style={{ fontSize: 12, color: "#94A3B8", fontFamily: "monospace" }}>📍 {t.location}</div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{
+                  padding: "18px", textAlign: "center", background: "#F8FAFD",
+                  border: "1px dashed #E2EAF4", borderRadius: 8,
+                  fontSize: 13, color: "#94A3B8",
+                }}>
+                  No tracking updates yet
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
 
-      <Card>
-        {loading && <LinearProgress />}
-        <Scrollbar>
-          <TableContainer sx={{ minWidth: 800 }}>
-            <Table>
-              <UserTableHead
-                order={order}
-                orderBy={orderBy}
-                rowCount={orders.length}
-                numSelected={selected.length}
-                onRequestSort={(e, property) => {
-                  setOrder(orderBy === property && order === "asc" ? "desc" : "asc");
-                  setOrderBy(property);
-                }}
-                onSelectAllClick={handleSelectAllClick}
-                headLabel={[
-                  { id: "_id", label: "Order" },
-                  { id: "vendor", label: "Vendor" },
-                  { id: "items", label: "Items" },
-                  { id: "totalAmount", label: "Amount" },
-                  { id: "payment", label: "Payment" },
-                  { id: "status", label: "Order Status" },
-                  { id: "actions", label: "Actions" },
-                ]}
-              />
-              <TableBody>
-                {dataFiltered
-                  .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                  .map((row) => (
-                    <OrderTableRow 
-                      key={row._id} 
-                      row={row} 
-                      selected={selected} 
-                      handleClick={handleClick} 
-                      handleView={handleView}
-                      onStatusUpdate={handleStatusUpdate}
-                    />
-                  ))}
-                <TableEmptyRows height={77} emptyRows={emptyRows(page, rowsPerPage, orders.length)} />
-                {!dataFiltered.length && !loading && <TableNoData />}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </Scrollbar>
-        <TablePagination
-          component="div"
-          count={orders.length}
-          page={page}
-          rowsPerPage={rowsPerPage}
-          rowsPerPageOptions={[5, 10, 25]}
-          onPageChange={(e, newPage) => setPage(newPage)}
-          onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
-        />
-      </Card>
+      {/* ─── TOAST ─── */}
+      {toast && (
+        <div style={{
+          position: "fixed", bottom: 24, right: 24, zIndex: 999,
+          background: toast.error ? "#FFF1F2" : "#F0FDF4",
+          border: `1px solid ${toast.error ? "#FECDD3" : "#BBF7D0"}`,
+          color: toast.error ? "#EF4444" : "#16A34A",
+          padding: "12px 18px", borderRadius: 10, fontSize: 13, fontWeight: 600,
+          boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
+          display: "flex", alignItems: "center", gap: 8,
+        }}>
+          {toast.error ? "⚠️" : "✓"} {toast.message}
+        </div>
+      )}
 
-      {/* ================= DETAILED ORDER MODAL ================= */}
-      <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth scroll="paper">
-        <DialogTitle sx={{ pb: 1 }}>
-          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <Box>
-              <Typography variant="h6" fontWeight={700}>Order Details</Typography>
-              <Typography variant="caption" color="text.secondary">#{selectedOrder?._id}</Typography>
-            </Box>
-            <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
-              {/* ✅ NEW: Status dropdown in dialog */}
-              {selectedOrder && (
-                <FormControl size="small" sx={{ minWidth: 140 }}>
-                  <Select
-                    value={selectedOrder.status}
-                    onChange={(e) => handleDialogStatusUpdate(e.target.value)}
-                    variant="outlined"
-                  >
-                    <MenuItem value="PLACED">PLACED</MenuItem>
-                    <MenuItem value="PROCESSING">PROCESSING</MenuItem>
-                    <MenuItem value="ACCEPTED">ACCEPTED</MenuItem>
-                    <MenuItem value="SHIPPED">SHIPPED</MenuItem>
-                    <MenuItem value="DELIVERED">DELIVERED</MenuItem>
-                    <MenuItem value="COMPLETED">COMPLETED</MenuItem>
-                    <MenuItem value="REJECTED">REJECTED</MenuItem>
-                    <MenuItem value="CANCELLED">CANCELLED</MenuItem>
-                  </Select>
-                </FormControl>
-              )}
-            </Box>
-          </Box>
-        </DialogTitle>
-        <Divider />
-
-        {selectedOrder && (
-          <DialogContent sx={{ pt: 3 }}>
-            <Grid container spacing={2.5} sx={{ mb: 3 }}>
-
-              {/* Vendor */}
-              <Grid item xs={12} sm={6}>
-                <InfoCard title="Vendor Details" icon="🏪">
-                  <Typography variant="body1" fontWeight={700}>{selectedOrder.vendor?.businessName}</Typography>
-                  <Typography variant="body2" color="text.secondary">{selectedOrder.vendor?.email}</Typography>
-                  {selectedOrder.vendor?.phone && <Typography variant="body2" color="text.secondary">📞 {selectedOrder.vendor.phone}</Typography>}
-                  {selectedOrder.vendor?.address && <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>📍 {selectedOrder.vendor.address}</Typography>}
-                </InfoCard>
-              </Grid>
-
-              {/* Shipping */}
-              <Grid item xs={12} sm={6}>
-                <InfoCard title="Shipping Address" icon="📦">
-                  <Typography variant="body1" fontWeight={700}>{selectedOrder.shippingAddress?.name}</Typography>
-                  <Typography variant="body2" color="text.secondary">{selectedOrder.shippingAddress?.line1}</Typography>
-                  {selectedOrder.shippingAddress?.line2 && <Typography variant="body2" color="text.secondary">{selectedOrder.shippingAddress.line2}</Typography>}
-                  <Typography variant="body2" color="text.secondary">
-                    {selectedOrder.shippingAddress?.city}, {selectedOrder.shippingAddress?.state} - {selectedOrder.shippingAddress?.pincode}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">📞 {selectedOrder.shippingAddress?.phone}</Typography>
-                </InfoCard>
-              </Grid>
-
-              {/* Order Meta */}
-              <Grid item xs={12} sm={6}>
-                <InfoCard title="Order Information" icon="🧾">
-                  <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1 }}>
-                    <Box>
-                      <Typography variant="caption" color="text.secondary">Order ID</Typography>
-                      <Typography variant="body2" fontWeight={600} color="primary.main">#{selectedOrder._id.slice(-8).toUpperCase()}</Typography>
-                    </Box>
-                    <Box>
-                      <Typography variant="caption" color="text.secondary">Placed On</Typography>
-                      <Typography variant="body2" fontWeight={600}>{new Date(selectedOrder.createdAt).toLocaleString("en-IN")}</Typography>
-                    </Box>
-                    {selectedOrder.updatedAt && (
-                      <Box sx={{ gridColumn: "1/-1" }}>
-                        <Typography variant="caption" color="text.secondary">Last Updated</Typography>
-                        <Typography variant="body2" fontWeight={600}>{new Date(selectedOrder.updatedAt).toLocaleString("en-IN")}</Typography>
-                      </Box>
-                    )}
-                  </Box>
-                </InfoCard>
-              </Grid>
-
-              {/* ✅ NEW: Dedicated Payment Details card */}
-              <Grid item xs={12} sm={6}>
-                <InfoCard title="Payment Details" icon="💳">
-                  <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1.5 }}>
-                    <Box>
-                      <Typography variant="caption" color="text.secondary">Method</Typography>
-                      <Typography variant="body2" fontWeight={600}>{paymentMethodLabel(selectedOrder.paymentMethod)}</Typography>
-                    </Box>
-                    <Box>
-                      <Typography variant="caption" color="text.secondary">Status</Typography>
-                      <Box sx={{ mt: 0.5 }}>
-                        <PaymentStatusChip status={selectedOrder.payment?.status} />
-                      </Box>
-                    </Box>
-                    {selectedOrder.payment?.paidAt && (
-                      <Box sx={{ gridColumn: "1/-1" }}>
-                        <Typography variant="caption" color="text.secondary">Paid At</Typography>
-                        <Typography variant="body2" fontWeight={600}>{new Date(selectedOrder.payment.paidAt).toLocaleString("en-IN")}</Typography>
-                      </Box>
-                    )}
-                    {selectedOrder.payment?.razorpayPaymentId && (
-                      <Box sx={{ gridColumn: "1/-1" }}>
-                        <Typography variant="caption" color="text.secondary">Razorpay Payment ID</Typography>
-                        <Typography variant="body2" fontWeight={600}
-                          sx={{ fontFamily: "monospace", fontSize: 11, wordBreak: "break-all", bgcolor: "#f5f5f5", px: 1, py: 0.5, borderRadius: 1 }}>
-                          {selectedOrder.payment.razorpayPaymentId}
-                        </Typography>
-                      </Box>
-                    )}
-                    {selectedOrder.payment?.razorpayOrderId && (
-                      <Box sx={{ gridColumn: "1/-1" }}>
-                        <Typography variant="caption" color="text.secondary">Razorpay Order ID</Typography>
-                        <Typography variant="body2" fontWeight={600}
-                          sx={{ fontFamily: "monospace", fontSize: 11, wordBreak: "break-all", bgcolor: "#f5f5f5", px: 1, py: 0.5, borderRadius: 1 }}>
-                          {selectedOrder.payment.razorpayOrderId}
-                        </Typography>
-                      </Box>
-                    )}
-                  </Box>
-                </InfoCard>
-              </Grid>
-
-              {/* Delivery Info */}
-              <Grid item xs={12} sm={6}>
-                <InfoCard title="Delivery Details" icon="🚚">
-                  <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1 }}>
-                    <Box>
-                      <Typography variant="caption" color="text.secondary">Delivery Type</Typography>
-                      <Typography variant="body2" fontWeight={600}>{selectedOrder.deliveryType || "Standard"}</Typography>
-                    </Box>
-                    <Box>
-                      <Typography variant="caption" color="text.secondary">Est. Delivery</Typography>
-                      <Typography variant="body2" fontWeight={600}>{selectedOrder.estimatedDelivery || "N/A"}</Typography>
-                    </Box>
-                    <Box>
-                      <Typography variant="caption" color="text.secondary">Tracking ID</Typography>
-                      <Typography variant="body2" fontWeight={600}>{selectedOrder.trackingId || "N/A"}</Typography>
-                    </Box>
-                    <Box>
-                      <Typography variant="caption" color="text.secondary">Courier</Typography>
-                      <Typography variant="body2" fontWeight={600}>{selectedOrder.courier || "N/A"}</Typography>
-                    </Box>
-                  </Box>
-                  {selectedOrder.deliveryNotes && (
-                    <Box sx={{ mt: 1, p: 1, background: "#fff8e1", borderRadius: 1 }}>
-                      <Typography variant="caption" color="warning.dark">📝 Note: {selectedOrder.deliveryNotes}</Typography>
-                    </Box>
-                  )}
-                </InfoCard>
-              </Grid>
-            </Grid>
-
-            {/* Items */}
-            <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1.5 }}>
-              🛒 Purchased Items ({selectedOrder.items?.length})
-            </Typography>
-            <Box sx={{ borderRadius: 2, overflow: "hidden", border: "1px solid", borderColor: "divider", mb: 3 }}>
-              <Box sx={{ display: "grid", gridTemplateColumns: "2fr 0.5fr 1fr 1fr", px: 2, py: 1, bgcolor: "#f5f5f5" }}>
-                {["Product", "Qty", "Unit Price", "Total"].map((h) => (
-                  <Typography key={h} variant="caption" fontWeight={700} color="text.secondary" sx={{ textTransform: "uppercase", letterSpacing: 0.5, fontSize: 10 }}>{h}</Typography>
-                ))}
-              </Box>
-              {selectedOrder.items?.map((item, index) => (
-                <Box key={index} sx={{ display: "grid", gridTemplateColumns: "2fr 0.5fr 1fr 1fr", px: 2, py: 1.5, borderTop: "1px solid", borderColor: "divider", alignItems: "center", background: index % 2 === 0 ? "transparent" : "#fafafa" }}>
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-                    <Avatar src={item.image || item.product?.image || item.product?.images?.[0]} variant="rounded"
-                      sx={{ width: 44, height: 44, bgcolor: "primary.light", fontSize: 16, fontWeight: 700, flexShrink: 0, border: "1px solid", borderColor: "divider" }}>
-                      {item.name?.charAt(0).toUpperCase()}
-                    </Avatar>
-                    <Box>
-                      <Typography variant="body2" fontWeight={600}>{item.name}</Typography>
-                      {item.product?.description && <Typography variant="caption" color="text.secondary">{item.product.description}</Typography>}
-                      {item.sku && <Typography variant="caption" color="text.disabled" display="block">SKU: {item.sku}</Typography>}
-                      {item.variant && <Typography variant="caption" color="text.secondary" display="block">Variant: {item.variant}</Typography>}
-                    </Box>
-                  </Box>
-                  <Typography variant="body2">{item.quantity}</Typography>
-                  <Typography variant="body2">₹{item.price?.toFixed(2)}</Typography>
-                  <Typography variant="body2" fontWeight={700}>₹{(item.price * item.quantity).toFixed(2)}</Typography>
-                </Box>
-              ))}
-            </Box>
-
-            {/* Totals */}
-            <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
-              <Box sx={{ width: 260 }}>
-                <Box sx={{ display: "flex", justifyContent: "space-between", py: 0.5 }}>
-                  <Typography variant="body2" color="text.secondary">Subtotal</Typography>
-                  <Typography variant="body2">₹{selectedOrder.items?.reduce((s, i) => s + i.price * i.quantity, 0).toFixed(2)}</Typography>
-                </Box>
-                {selectedOrder.discount > 0 && (
-                  <Box sx={{ display: "flex", justifyContent: "space-between", py: 0.5 }}>
-                    <Typography variant="body2" color="success.main">Discount</Typography>
-                    <Typography variant="body2" color="success.main">-₹{selectedOrder.discount?.toFixed(2)}</Typography>
-                  </Box>
-                )}
-                {selectedOrder.deliveryCharge > 0 && (
-                  <Box sx={{ display: "flex", justifyContent: "space-between", py: 0.5 }}>
-                    <Typography variant="body2" color="text.secondary">Delivery</Typography>
-                    <Typography variant="body2">₹{selectedOrder.deliveryCharge?.toFixed(2)}</Typography>
-                  </Box>
-                )}
-                <Divider sx={{ my: 1 }} />
-                <Box sx={{ display: "flex", justifyContent: "space-between", py: 1, px: 1.5, background: "#1a1a2e", borderRadius: 1.5 }}>
-                  <Typography variant="body1" fontWeight={800} color="#fff">Grand Total</Typography>
-                  <Typography variant="body1" fontWeight={800} sx={{ color: "#e63946" }}>₹{selectedOrder.totalAmount?.toFixed(2)}</Typography>
-                </Box>
-              </Box>
-            </Box>
-
-            {selectedOrder.notes && (
-              <Box sx={{ mt: 2, p: 2, background: "#fff8e1", borderRadius: 2 }}>
-                <Typography variant="subtitle2" color="warning.dark" sx={{ mb: 0.5 }}>📝 Order Notes</Typography>
-                <Typography variant="body2">{selectedOrder.notes}</Typography>
-              </Box>
-            )}
-          </DialogContent>
-        )}
-
-        <Divider />
-        <DialogActions sx={{ px: 3, py: 2, gap: 1 }}>
-          <Button onClick={handleClose} variant="outlined" color="inherit">Close</Button>
-          <Button onClick={handleOpenInvoice} variant="contained" color="primary">🖨️ Generate Invoice</Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* ================= INVOICE DIALOG ================= */}
-      <Dialog open={invoiceOpen} onClose={() => setInvoiceOpen(false)} maxWidth="md" fullWidth scroll="paper">
-        <DialogTitle>
-          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <Typography variant="h6" fontWeight={700}>Admin Invoice</Typography>
-            <Box sx={{ display: "flex", gap: 1 }}>
-              <Button variant="outlined" size="small" onClick={() => setInvoiceOpen(false)}>← Back</Button>
-              <Button variant="contained" size="small" onClick={handlePrintInvoice} sx={{ background: "#1a1a2e" }}>🖨️ Print / Save PDF</Button>
-            </Box>
-          </Box>
-        </DialogTitle>
-        <Divider />
-        <DialogContent>
-          <AdminInvoice order={selectedOrder} />
-        </DialogContent>
-      </Dialog>
-
-      {/* ✅ NEW: Snackbar for notifications */}
-      <Snackbar 
-        open={snackbar.open} 
-        autoHideDuration={6000} 
-        onClose={handleCloseSnackbar}
-        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
-      >
-        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity} sx={{ width: '100%' }}>
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
-    </Container>
+      <style>{`
+        @keyframes shimmer { 0%{transform:translateX(-100%)} 100%{transform:translateX(100%)} }
+        select { appearance: auto; }
+      `}</style>
+    </div>
   );
 }
