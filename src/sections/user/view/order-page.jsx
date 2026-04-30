@@ -212,7 +212,6 @@ export default function OrdersPage() {
     };
 
     if (usingDummyData) {
-      // Deep copy to avoid reference issues
       const updatedOrder = { 
         ...selectedOrder, 
         trackingUpdates: [...(selectedOrder.trackingUpdates || []), newEntry] 
@@ -234,15 +233,12 @@ export default function OrdersPage() {
         { headers: { Authorization: `Bearer ${token}` } }
       );
       
-      // Ensure we're getting the updated order with tracking updates
       if (res.data && res.data.order) {
         setSelectedOrder(res.data.order);
-        // Also update in the orders list
         setOrders(prev => prev.map(o => 
           o._id === res.data.order._id ? res.data.order : o
         ));
       } else if (res.data) {
-        // If API returns just the tracking update, construct the updated order
         const updatedOrder = {
           ...selectedOrder,
           trackingUpdates: [...(selectedOrder.trackingUpdates || []), newEntry]
@@ -278,8 +274,6 @@ export default function OrdersPage() {
     }
     
     try {
-      // Note: You might need to implement a delete endpoint on your backend
-      // For now, we'll just update locally
       const updatedOrder = { ...selectedOrder, trackingUpdates: updatedTrackingUpdates };
       setSelectedOrder(updatedOrder);
       setOrders(prev => prev.map(o => o._id === updatedOrder._id ? updatedOrder : o));
@@ -489,7 +483,7 @@ export default function OrdersPage() {
           display: "flex", alignItems: "center", justifyContent: "center",
         }}>
           <div onClick={e => e.stopPropagation()} style={{
-            background: "#fff", borderRadius: 18, width: 580, maxHeight: "88vh",
+            background: "#fff", borderRadius: 18, width: 700, maxHeight: "88vh",
             overflowY: "auto", boxShadow: "0 24px 64px rgba(15,30,60,0.2)", border: "1px solid #E8EEF7",
           }}>
             {/* Modal Header */}
@@ -497,6 +491,7 @@ export default function OrdersPage() {
               padding: "22px 24px 18px", borderBottom: "1px solid #F1F5FA",
               display: "flex", alignItems: "center", justifyContent: "space-between",
               position: "sticky", top: 0, background: "#fff", borderRadius: "18px 18px 0 0",
+              zIndex: 10,
             }}>
               <div>
                 <div style={{ fontSize: 11, color: "#94A3B8", fontWeight: 700, textTransform: "uppercase", letterSpacing: "1px", marginBottom: 4 }}>Order Details</div>
@@ -516,6 +511,36 @@ export default function OrdersPage() {
             </div>
 
             <div style={{ padding: "20px 24px 24px" }}>
+
+              {/* Order Summary Row */}
+              <div style={{ display: "flex", gap: 16, marginBottom: 24, flexWrap: "wrap", padding: "12px", background: "#F8FAFD", borderRadius: 10, border: "1px solid #E8EEF7" }}>
+                <div>
+                  <div style={{ fontSize: 10, color: "#94A3B8", fontWeight: 700, textTransform: "uppercase", marginBottom: 4 }}>Created At</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "#1E3A5F" }}>
+                    {selectedOrder.createdAt ? new Date(selectedOrder.createdAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : "N/A"}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 10, color: "#94A3B8", fontWeight: 700, textTransform: "uppercase", marginBottom: 4 }}>Last Updated</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "#1E3A5F" }}>
+                    {selectedOrder.updatedAt ? new Date(selectedOrder.updatedAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : "N/A"}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 10, color: "#94A3B8", fontWeight: 700, textTransform: "uppercase", marginBottom: 4 }}>Subtotal</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: "#1E3A5F", fontFamily: "monospace" }}>
+                    ₹{(selectedOrder.subTotal || 0).toLocaleString()}
+                  </div>
+                </div>
+                {selectedOrder.deliveryFee !== undefined && (
+                  <div>
+                    <div style={{ fontSize: 10, color: "#94A3B8", fontWeight: 700, textTransform: "uppercase", marginBottom: 4 }}>Delivery Fee</div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: "#F59E0B", fontFamily: "monospace" }}>
+                      ₹{(selectedOrder.deliveryFee || 0).toLocaleString()}
+                    </div>
+                  </div>
+                )}
+              </div>
 
               {/* ─── PAYMENT INFO CARD ─── */}
               {selectedOrder.payment && (
@@ -582,28 +607,124 @@ export default function OrdersPage() {
                 </>
               )}
 
-              {/* Items */}
+              {/* Items Ordered with Full Details */}
               <div style={{ fontSize: 11, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: 10 }}>Items Ordered</div>
               <div style={{ border: "1px solid #E8EEF7", borderRadius: 10, overflow: "hidden", marginBottom: 20 }}>
-                {selectedOrder.items.map((item, i) => (
-                  <div key={i} style={{
-                    display: "flex", justifyContent: "space-between", alignItems: "center",
-                    padding: "12px 16px",
-                    borderBottom: i < selectedOrder.items.length - 1 ? "1px solid #F1F5FA" : "none",
-                    background: i % 2 === 0 ? "#fff" : "#FAFBFF",
+                {selectedOrder.items.map((item, idx) => (
+                  <div key={idx} style={{
+                    padding: "16px",
+                    borderBottom: idx < selectedOrder.items.length - 1 ? "1px solid #F1F5FA" : "none",
+                    background: idx % 2 === 0 ? "#fff" : "#FAFBFF",
                   }}>
-                    <div>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: "#1E3A5F" }}>{item.name}</div>
-                      <div style={{ fontSize: 11, color: "#94A3B8", marginTop: 2 }}>Qty: {item.quantity}</div>
+                    {/* Product Header */}
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", marginBottom: 12 }}>
+                      <div>
+                        <div style={{ fontSize: 15, fontWeight: 800, color: "#1E3A5F" }}>{item.name}</div>
+                        <div style={{ fontSize: 11, color: "#94A3B8", marginTop: 2 }}>
+                          Product ID: {item.product || "N/A"}
+                        </div>
+                      </div>
+                      <div style={{ textAlign: "right" }}>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: "#1E3A5F" }}>
+                          ₹{item.lineTotal?.toLocaleString() || (item.sellingPrice * item.quantity).toLocaleString()}
+                        </div>
+                        <div style={{ fontSize: 11, color: "#94A3B8", marginTop: 2 }}>
+                          Qty: {item.quantity} × ₹{item.sellingPrice || 0}
+                        </div>
+                      </div>
                     </div>
-                    <div style={{ fontFamily: "monospace", fontSize: 14, fontWeight: 700, color: "#2563EB" }}>
-                      ₹{((item.sellingPrice || 0) * (item.quantity || 0)).toLocaleString()}
+
+                    {/* Price Details Row */}
+                    <div style={{ display: "flex", gap: 20, marginBottom: 12, padding: "8px 0", borderTop: "1px solid #F1F5FA", borderBottom: "1px solid #F1F5FA" }}>
+                      {item.mrp && (
+                        <div>
+                          <div style={{ fontSize: 10, color: "#94A3B8", fontWeight: 600 }}>MRP</div>
+                          <div style={{ fontSize: 12, fontWeight: 500, color: "#64748B", textDecoration: "line-through" }}>₹{item.mrp}</div>
+                        </div>
+                      )}
+                      {item.sellingPrice && (
+                        <div>
+                          <div style={{ fontSize: 10, color: "#94A3B8", fontWeight: 600 }}>Selling Price</div>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: "#2563EB" }}>₹{item.sellingPrice}</div>
+                        </div>
+                      )}
+                      {item.discount > 0 && (
+                        <div>
+                          <div style={{ fontSize: 10, color: "#94A3B8", fontWeight: 600 }}>Discount</div>
+                          <div style={{ fontSize: 12, fontWeight: 600, color: "#22C55E" }}>{item.discount}% OFF</div>
+                        </div>
+                      )}
+                      {item.unit && (
+                        <div>
+                          <div style={{ fontSize: 10, color: "#94A3B8", fontWeight: 600 }}>Unit</div>
+                          <div style={{ fontSize: 12, fontWeight: 500, color: "#64748B" }}>{item.unit}</div>
+                        </div>
+                      )}
                     </div>
+
+                    {/* Designs / Custom Configurations */}
+                    {item.designs && item.designs.length > 0 && (
+                      <div style={{ marginTop: 8 }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: "#64748B", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
+                          <span>🎨</span> Design Specifications
+                        </div>
+                        {item.designs.map((design, dIdx) => (
+                          <div key={dIdx} style={{
+                            background: "#F8FAFD", borderRadius: 8, padding: "12px",
+                            marginBottom: dIdx < item.designs.length - 1 ? 8 : 0,
+                            border: "1px solid #E8EEF7"
+                          }}>
+                            {design.config && (
+                              <div style={{ display: "grid", gap: 8 }}>
+                                {/* Display each config field */}
+                                {Object.entries(design.config).map(([key, value]) => {
+                                  // Skip quantity as it's displayed separately
+                                  if (key === "quantity") return null;
+                                  
+                                  // Format the key for better display
+                                  const displayKey = key.replace(/_/g, " ").replace(/front/gi, "(Front)").replace(/back/gi, "(Back)");
+                                  
+                                  // Handle file attachments
+                                  const isFile = value && (typeof value === "string") && (value.includes("cloudinary") || value.includes("res.cloudinary") || value.match(/\.(jpg|jpeg|png|gif|webp)$/i));
+                                  
+                                  return (
+                                    <div key={key} style={{ fontSize: 12 }}>
+                                      <div style={{ fontWeight: 600, color: "#475569", marginBottom: 4 }}>{displayKey}:</div>
+                                      {isFile ? (
+                                        <a href={value} target="_blank" rel="noopener noreferrer" style={{
+                                          color: "#2563EB", fontSize: 11, wordBreak: "break-all", textDecoration: "none",
+                                          background: "#EFF6FF", padding: "4px 8px", borderRadius: 6, display: "inline-block"
+                                        }}>
+                                          📎 View Uploaded File
+                                        </a>
+                                      ) : Array.isArray(value) ? (
+                                        <div style={{ color: "#1E3A5F", fontWeight: 500, display: "flex", flexWrap: "wrap", gap: 4 }}>
+                                          {value.map((v, i) => (
+                                            <span key={i} style={{ background: "#EFF6FF", padding: "2px 8px", borderRadius: 4, fontSize: 11 }}>{v}</span>
+                                          ))}
+                                        </div>
+                                      ) : (
+                                        <div style={{ color: "#1E3A5F", fontWeight: 500 }}>{value}</div>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                                {design.quantity && (
+                                  <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px dashed #E2EAF4", fontSize: 12 }}>
+                                    <span style={{ fontWeight: 600, color: "#475569" }}>Design Quantity:</span> {design.quantity}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 ))}
-                <div style={{ padding: "12px 16px", background: "#EFF6FF", display: "flex", justifyContent: "space-between", borderTop: "1.5px solid #BFDBFE" }}>
-                  <div style={{ fontSize: 13, fontWeight: 800, color: "#1E3A5F" }}>Total</div>
-                  <div style={{ fontFamily: "monospace", fontSize: 15, fontWeight: 800, color: "#2563EB" }}>
+                <div style={{ padding: "14px 16px", background: "#EFF6FF", display: "flex", justifyContent: "space-between", borderTop: "1.5px solid #BFDBFE" }}>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: "#1E3A5F" }}>Total Amount</div>
+                  <div style={{ fontFamily: "monospace", fontSize: 16, fontWeight: 800, color: "#2563EB" }}>
                     ₹{(selectedOrder.totalAmount || 0).toLocaleString()}
                   </div>
                 </div>
@@ -613,10 +734,10 @@ export default function OrdersPage() {
               {selectedOrder.shippingAddress && (
                 <>
                   <div style={{ fontSize: 11, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: 10, marginTop: 16 }}>Shipping Address</div>
-                  <div style={{ padding: "12px 16px", background: "#F8FAFD", borderRadius: 8, border: "1px solid #E8EEF7", marginBottom: 20, fontSize: 13 }}>
-                    <div><strong>{selectedOrder.shippingAddress.name}</strong></div>
-                    <div>{selectedOrder.shippingAddress.phone}</div>
-                    <div>{selectedOrder.shippingAddress.line1}</div>
+                  <div style={{ padding: "14px 16px", background: "#F8FAFD", borderRadius: 10, border: "1px solid #E8EEF7", marginBottom: 20, fontSize: 13 }}>
+                    <div style={{ fontWeight: 700, marginBottom: 4 }}>{selectedOrder.shippingAddress.name}</div>
+                    <div style={{ marginBottom: 4 }}>📞 {selectedOrder.shippingAddress.phone}</div>
+                    <div style={{ marginBottom: 4 }}>📍 {selectedOrder.shippingAddress.line1}</div>
                     <div>{selectedOrder.shippingAddress.city}, {selectedOrder.shippingAddress.state} - {selectedOrder.shippingAddress.pincode}</div>
                   </div>
                 </>
