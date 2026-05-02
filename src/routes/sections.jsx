@@ -12,6 +12,7 @@ import ProtectedRoute from './ProtectedRoute';
 // Import pages
 export const IndexPage = lazy(() => import('src/pages/app'));
 export const CoupanPage=lazy(()=>import('src/pages/Coupan'));
+export const Testimonial=lazy(()=>import('src/pages/Testimonial'));
 export const BlogPage = lazy(() => import('src/pages/blog'));
 export const UserPage = lazy(() => import('src/pages/user'));
 export const LoginPage = lazy(() => import('src/pages/login'));
@@ -50,6 +51,7 @@ export default function Router() {
         { path: 'order', element: <OrderPage /> },
         { path: 'blog', element: <BlogPage /> },
         { path: 'Promocode', element: <CoupanPage /> },
+        { path: 'testi', element: <Testimonial /> },
       ],
     },
 

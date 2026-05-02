@@ -58,6 +58,12 @@ const navConfig = [
     path: '/Promocode',
     icon: icon('ic_lock'),
   },
+   {
+    title: 'Testimonial',
+    path: '/testi',
+    icon: icon('ic_lock'),
+  },
+
   // {
   //   title: 'Not found',
   //   path: '/404',
