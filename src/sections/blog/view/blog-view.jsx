@@ -1,7 +1,3 @@
-
-/* eslint-disable perfectionist/sort-named-imports */
-/* eslint-disable perfectionist/sort-named-imports */
-/* eslint-disable react/prop-types */
 /* eslint-disable */
 import { useState, useEffect } from "react";
 import {
@@ -28,25 +24,46 @@ import {
 
 const API_BASE_URL = "https://my-project-backend-ee4t.onrender.com/api/offercode";
 
+// 🔥 GET TOKEN (IMPORTANT)
+const getToken = () => localStorage.getItem("token");
+
 // 🔥 Coupon API
 const couponApi = {
   getAll: async () => {
-    const res = await fetch(API_BASE_URL);
+    const res = await fetch(API_BASE_URL, {
+      headers: {
+        Authorization: `Bearer ${getToken()}`,
+      },
+    });
     const data = await res.json();
     return data.data;
   },
 
   create: async (data) => {
-    const res = await fetch(API_BASE_URL, {
+    const res = await fetch(`${API_BASE_URL}/create`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${getToken()}`, // 🔥 required
+      },
+      body: JSON.stringify(data),
+    });
+    return res.json();
+  },
+
+  apply: async (data) => {
+    const res = await fetch(`${API_BASE_URL}/apply`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify(data),
     });
     return res.json();
   },
 };
 
-// 🔥 Coupon Code Generator
+// 🔥 Coupon Generator
 const generateCouponCode = (length = 8) => {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
   let code = "";
@@ -71,36 +88,80 @@ export default function CouponView() {
   const [coupons, setCoupons] = useState([]);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(defaultForm);
-  const [snackbar, setSnackbar] = useState({ open: false, message: "" });
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: "",
+    severity: "success",
+  });
 
+  const [applyCode, setApplyCode] = useState("");
+  const [applyResult, setApplyResult] = useState(null);
+
+  // 🔥 Fetch Coupons
   const fetchCoupons = async () => {
-    const data = await couponApi.getAll();
-    setCoupons(data || []);
+    try {
+      const data = await couponApi.getAll();
+      setCoupons(data || []);
+    } catch (err) {
+      showSnackbar("Failed to fetch coupons", "error");
+    }
   };
 
   useEffect(() => {
     fetchCoupons();
   }, []);
 
+  const showSnackbar = (message, severity = "success") => {
+    setSnackbar({ open: true, message, severity });
+  };
+
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
+  // 🔥 CREATE COUPON
   const handleCreate = async () => {
     if (!form.code || !form.discountValue || !form.validFrom || !form.validTill) {
-      setSnackbar({ open: true, message: "Fill all required fields" });
-      return;
+      return showSnackbar("Fill all required fields", "error");
     }
 
-    await couponApi.create(form);
-    setSnackbar({ open: true, message: "Coupon Created" });
-    setOpen(false);
-    setForm(defaultForm);
-    fetchCoupons();
+    try {
+      const res = await couponApi.create(form);
+
+      if (res.success) {
+        showSnackbar("Coupon Created");
+        setOpen(false);
+        setForm(defaultForm);
+        fetchCoupons();
+      } else {
+        showSnackbar(res.message || "Error creating coupon", "error");
+      }
+    } catch (err) {
+      showSnackbar("Server error", "error");
+    }
+  };
+
+  // 🔥 APPLY COUPON
+  const handleApply = async () => {
+    if (!applyCode) return showSnackbar("Enter coupon code", "error");
+
+    try {
+      const res = await couponApi.apply({ code: applyCode, cartTotal: 1000 });
+
+      if (res.success) {
+        setApplyResult(res.data);
+        showSnackbar("Coupon Applied");
+      } else {
+        showSnackbar(res.message, "error");
+      }
+    } catch (err) {
+      showSnackbar("Error applying coupon", "error");
+    }
   };
 
   return (
     <Container>
+      {/* HEADER */}
       <Stack direction="row" justifyContent="space-between" mb={4}>
         <Typography variant="h4">Coupon Management</Typography>
         <Button variant="contained" onClick={() => setOpen(true)}>
@@ -108,7 +169,25 @@ export default function CouponView() {
         </Button>
       </Stack>
 
-      {/* Coupon List */}
+      {/* APPLY COUPON */}
+      <Stack direction="row" spacing={2} mb={4}>
+        <TextField
+          label="Apply Coupon"
+          value={applyCode}
+          onChange={(e) => setApplyCode(e.target.value)}
+        />
+        <Button variant="contained" onClick={handleApply}>
+          Apply
+        </Button>
+      </Stack>
+
+      {applyResult && (
+        <Typography color="green" mb={2}>
+          Discount: ₹{applyResult.discount}
+        </Typography>
+      )}
+
+      {/* COUPON LIST */}
       <Grid container spacing={3}>
         {coupons.map((c) => (
           <Grid item xs={12} sm={6} md={4} key={c._id}>
@@ -116,12 +195,7 @@ export default function CouponView() {
               <CardContent>
                 <Typography variant="h6">{c.code}</Typography>
 
-                <Chip
-                  label={c.discountType}
-                  color="primary"
-                  size="small"
-                  sx={{ mr: 1 }}
-                />
+                <Chip label={c.discountType} color="primary" size="small" />
 
                 <Typography>
                   Discount: {c.discountValue}
@@ -146,9 +220,10 @@ export default function CouponView() {
         ))}
       </Grid>
 
-      {/* Create Dialog */}
+      {/* CREATE DIALOG */}
       <Dialog open={open} onClose={() => setOpen(false)} fullWidth>
         <DialogTitle>Create Coupon</DialogTitle>
+
         <DialogContent>
           <Stack spacing={2} mt={1}>
             <TextField
@@ -240,13 +315,13 @@ export default function CouponView() {
         </DialogActions>
       </Dialog>
 
-      {/* Snackbar */}
+      {/* SNACKBAR */}
       <Snackbar
         open={snackbar.open}
         autoHideDuration={3000}
-        onClose={() => setSnackbar({ open: false, message: "" })}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
       >
-        <Alert severity="success">{snackbar.message}</Alert>
+        <Alert severity={snackbar.severity}>{snackbar.message}</Alert>
       </Snackbar>
     </Container>
   );

@@ -50,7 +50,7 @@ const navConfig = [
   },
   {
     title: 'Complaint',
-    path: '/blog',
+    path: '/Complain',
     icon: icon('ic_blog'),
   },
   {
