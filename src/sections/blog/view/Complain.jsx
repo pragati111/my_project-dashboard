@@ -22,6 +22,12 @@ import {
   InputAdornment,
   Divider,
   Avatar,
+  FormControl,
+  FormLabel,
+  RadioGroup,
+  FormControlLabel,
+  Radio,
+  CircularProgress,
 } from "@mui/material";
 // No external icon library needed — using inline emoji icons
 
@@ -64,6 +70,18 @@ const complaintApi = {
   getAll: async () => {
     const res = await fetch(API_BASE_URL);
     const data = await res.json();
+    return data.data;
+  },
+  updateStatus: async (id, status, resolution) => {
+    const res = await fetch(`${API_BASE_URL}/${id}/status`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ status, resolution }),
+    });
+    const data = await res.json();
+    if (!data.success) throw new Error(data.message);
     return data.data;
   },
 };
@@ -176,6 +194,126 @@ const FilterBtn = ({ label, active, onClick, color }) => (
   </Button>
 );
 
+// ─── Status Update Dialog Component (without MUI icon) ───────────────
+const StatusUpdateDialog = ({ open, complaint, onClose, onUpdate, loading }) => {
+  const [selectedStatus, setSelectedStatus] = useState("Resolved");
+  const [resolution, setResolution] = useState("");
+  const [errors, setErrors] = useState({});
+
+  const handleSubmit = () => {
+    const newErrors = {};
+    if (!resolution.trim()) {
+      newErrors.resolution = "Resolution details are required";
+    }
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+    onUpdate(complaint._id, selectedStatus, resolution);
+  };
+
+  useEffect(() => {
+    if (!open) {
+      setResolution("");
+      setSelectedStatus("Resolved");
+      setErrors({});
+    }
+  }, [open]);
+
+  if (!complaint) return null;
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle sx={{ pb: 1 }}>
+        <Stack direction="row" justifyContent="space-between" alignItems="center">
+          <Typography sx={{ fontWeight: 700, color: theme.textPrimary }}>
+            Update Complaint Status
+          </Typography>
+          <Button
+            onClick={onClose}
+            size="small"
+            sx={{ minWidth: 0, p: 0.5, color: theme.textMuted }}
+          >
+            ✕
+          </Button>
+        </Stack>
+        <Typography variant="body2" sx={{ color: theme.textMuted, mt: 0.5 }}>
+          {complaint.title}
+        </Typography>
+      </DialogTitle>
+      <DialogContent>
+        <FormControl component="fieldset" sx={{ mb: 3, mt: 1 }}>
+          <FormLabel component="legend" sx={{ fontWeight: 600, mb: 1 }}>
+            Resolution Status
+          </FormLabel>
+          <RadioGroup
+            value={selectedStatus}
+            onChange={(e) => setSelectedStatus(e.target.value)}
+            row
+          >
+            <FormControlLabel 
+              value="Resolved" 
+              control={<Radio />} 
+              label={
+                <Chip 
+                  label="Resolved" 
+                  size="small" 
+                  sx={statusStyle("Resolved")}
+                />
+              }
+            />
+            <FormControlLabel 
+              value="Rejected" 
+              control={<Radio />} 
+              label={
+                <Chip 
+                  label="Rejected" 
+                  size="small" 
+                  sx={statusStyle("Rejected")}
+                />
+              }
+            />
+          </RadioGroup>
+        </FormControl>
+
+        <TextField
+          fullWidth
+          multiline
+          rows={4}
+          label="Resolution Details"
+          placeholder={`Please provide detailed ${selectedStatus.toLowerCase()} notes explaining the outcome...`}
+          value={resolution}
+          onChange={(e) => {
+            setResolution(e.target.value);
+            if (errors.resolution) setErrors({});
+          }}
+          error={!!errors.resolution}
+          helperText={errors.resolution}
+          sx={{ mb: 2 }}
+        />
+      </DialogContent>
+      <DialogActions sx={{ px: 3, pb: 3 }}>
+        <Button onClick={onClose} sx={{ color: theme.textMuted }}>
+          Cancel
+        </Button>
+        <Button
+          onClick={handleSubmit}
+          variant="contained"
+          disabled={loading}
+          sx={{
+            bgcolor: selectedStatus === "Resolved" ? theme.resolvedText : theme.rejectedText,
+            "&:hover": {
+              bgcolor: selectedStatus === "Resolved" ? "#1B5E20" : "#B71C1C",
+            },
+          }}
+        >
+          {loading ? <CircularProgress size={24} /> : `Mark as ${selectedStatus}`}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+};
+
 // ─── Main Component ───────────────────────────────────────────────
 export default function ComplaintView() {
   const [complaints, setComplaints] = useState([]);
@@ -185,6 +323,9 @@ export default function ComplaintView() {
   const [activePriority, setActivePriority] = useState("all");
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState(null);
+  const [statusUpdateOpen, setStatusUpdateOpen] = useState(false);
+  const [selectedForUpdate, setSelectedForUpdate] = useState(null);
+  const [updating, setUpdating] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "info" });
 
   const fetchComplaints = async () => {
@@ -197,6 +338,29 @@ export default function ComplaintView() {
       setError("Failed to load complaints. Please check your connection.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleStatusUpdate = async (id, status, resolution) => {
+    setUpdating(true);
+    try {
+      await complaintApi.updateStatus(id, status, resolution);
+      setSnackbar({
+        open: true,
+        message: `Complaint successfully marked as ${status.toLowerCase()}`,
+        severity: "success",
+      });
+      setStatusUpdateOpen(false);
+      setSelectedForUpdate(null);
+      await fetchComplaints(); // Refresh the list
+    } catch (err) {
+      setSnackbar({
+        open: true,
+        message: err.message || "Failed to update complaint status",
+        severity: "error",
+      });
+    } finally {
+      setUpdating(false);
     }
   };
 
@@ -498,6 +662,33 @@ export default function ComplaintView() {
                           {formatDate(c.createdAt)}
                         </Typography>
                       </Stack>
+
+                      {/* Update Status Button - Only show for pending complaints */}
+                      {c.status === "Pending" && (
+                        <Button
+                          fullWidth
+                          variant="outlined"
+                          size="small"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedForUpdate(c);
+                            setStatusUpdateOpen(true);
+                          }}
+                          sx={{
+                            mt: 2,
+                            borderRadius: 2,
+                            textTransform: "none",
+                            borderColor: theme.primary,
+                            color: theme.primary,
+                            "&:hover": {
+                              bgcolor: theme.primaryBg,
+                              borderColor: theme.primaryLight,
+                            },
+                          }}
+                        >
+                          ✏️ Update Status
+                        </Button>
+                      )}
                     </CardContent>
                   </Card>
                 </Grid>
@@ -536,6 +727,23 @@ export default function ComplaintView() {
                     <Chip label={selected.category} size="small" sx={{ bgcolor: "rgba(255,255,255,0.2)", color: "#fff", fontWeight: 600, fontSize: "0.65rem", height: 22 }} />
                   </Stack>
                 </Box>
+                {selected.status === "Pending" && (
+                  <Button
+                    variant="contained"
+                    onClick={() => {
+                      setSelected(null);
+                      setSelectedForUpdate(selected);
+                      setStatusUpdateOpen(true);
+                    }}
+                    sx={{
+                      bgcolor: "rgba(255,255,255,0.2)",
+                      "&:hover": { bgcolor: "rgba(255,255,255,0.3)" },
+                      textTransform: "none",
+                    }}
+                  >
+                    Update Status
+                  </Button>
+                )}
               </Stack>
             </Box>
 
@@ -572,6 +780,10 @@ export default function ComplaintView() {
               <DetailRow icon="📅" label="Created" value={formatDate(selected.createdAt)} />
               <DetailRow icon="🔄" label="Last Updated" value={formatDate(selected.updatedAt)} />
 
+              {selected.resolvedAt && (
+                <DetailRow icon="✅" label="Resolved/Rejected On" value={formatDate(selected.resolvedAt)} />
+              )}
+
               {selected.adminNotes && (
                 <>
                   <Divider sx={{ borderColor: theme.border, mb: 3, mt: 1 }} />
@@ -580,7 +792,10 @@ export default function ComplaintView() {
               )}
 
               {selected.resolution && (
-              <DetailRow icon="✅" label="Resolution" value={selected.resolution} />
+                <>
+                  <Divider sx={{ borderColor: theme.border, mb: 3, mt: 1 }} />
+                  <DetailRow icon="💬" label="Resolution Details" value={selected.resolution} />
+                </>
               )}
             </DialogContent>
 
@@ -604,13 +819,27 @@ export default function ComplaintView() {
         )}
       </Dialog>
 
+      {/* Status Update Dialog */}
+      <StatusUpdateDialog
+        open={statusUpdateOpen}
+        complaint={selectedForUpdate}
+        onClose={() => {
+          setStatusUpdateOpen(false);
+          setSelectedForUpdate(null);
+        }}
+        onUpdate={handleStatusUpdate}
+        loading={updating}
+      />
+
       {/* ── Snackbar ───────────────────────────────────────────── */}
       <Snackbar
         open={snackbar.open}
         autoHideDuration={3000}
         onClose={() => setSnackbar({ ...snackbar, open: false })}
       >
-        <Alert severity={snackbar.severity}>{snackbar.message}</Alert>
+        <Alert severity={snackbar.severity} sx={{ width: "100%" }}>
+          {snackbar.message}
+        </Alert>
       </Snackbar>
     </Box>
   );
