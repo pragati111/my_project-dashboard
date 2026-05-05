@@ -8,6 +8,7 @@ import DashboardLayout from 'src/layouts/dashboard';
 // eslint-disable-next-line perfectionist/sort-imports
 import ProtectedRoute from './ProtectedRoute';
 import CoupanPage from 'src/pages/Coupan';
+import WholeSalePage from 'src/pages/WholeSale';
 
 
 // Import pages
@@ -52,7 +53,7 @@ export default function Router() {
         { path: 'order', element: <OrderPage /> },
         { path: 'blog', element: <BlogPage /> },
         { path: 'Promocode', element: <CoupanPage /> },
-
+{ path: 'wholeSale', element: <WholeSalePage /> },
          { path: 'Complain', element: <Complain /> },
         { path: 'testi', element: <Testimonial /> },
       ],
