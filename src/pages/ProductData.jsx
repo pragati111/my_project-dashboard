@@ -36,9 +36,8 @@ import {
   Divider,
   Stack,
   Tooltip,
-  InputAdornment,
 } from '@mui/material';
-import { MdEdit, MdDelete, MdAdd, MdRemove, MdCloudUpload, MdInfo, MdVisibility, MdVisibilityOff } from 'react-icons/md';
+import { MdEdit, MdDelete, MdAdd, MdRemove, MdCloudUpload, MdInfo } from 'react-icons/md';
 import { getCategories } from 'src/services/categoryService';
 import { getSubCategories } from 'src/services/SubcategoryService';
 import {
@@ -152,12 +151,12 @@ function MediaBuilder({ media, setFieldValue, uploading, setUploading, showSnack
   );
 }
 
-// ─── Wholesaler Price Manager Component ─────────────────────────────────────
-function WholesalerPriceManager({ wholesalerPrices, setFieldValue, wholesalers }) {
+// ─── Wholesaler Price Manager Component (FIXED) ─────────────────────────────
+function WholesalerPriceManager({ wholesalerPrices, setFieldValue, wholesalers, mrpPrice }) {
   const [selectedWholesaler, setSelectedWholesaler] = useState('');
-  const [newDefaultPrice, setNewDefaultPrice] = useState('');
   const [newWholesalePrice, setNewWholesalePrice] = useState('');
 
+  // Filter out wholesalers that already have pricing configured
   const availableWholesalers = wholesalers.filter(
     w => !wholesalerPrices.some(wp => wp.wholesalerId === w._id)
   );
@@ -167,20 +166,18 @@ function WholesalerPriceManager({ wholesalerPrices, setFieldValue, wholesalers }
       alert('Please select a wholesaler');
       return;
     }
-    if (!newDefaultPrice || !newWholesalePrice) {
-      alert('Please enter both prices');
+    if (!newWholesalePrice || parseFloat(newWholesalePrice) <= 0) {
+      alert('Please enter a valid wholesale price');
       return;
     }
 
     const newEntry = {
       wholesalerId: selectedWholesaler,
-      defaultPrice: parseFloat(newDefaultPrice),
       wholesalePrice: parseFloat(newWholesalePrice),
     };
 
     setFieldValue('wholesalerPrices', [...wholesalerPrices, newEntry]);
     setSelectedWholesaler('');
-    setNewDefaultPrice('');
     setNewWholesalePrice('');
   };
 
@@ -191,58 +188,82 @@ function WholesalerPriceManager({ wholesalerPrices, setFieldValue, wholesalers }
     }
   };
 
-  const updateWholesalerPrice = (index, field, value) => {
+  const updateWholesalerPrice = (index, value) => {
     const updated = wholesalerPrices.map((wp, i) =>
-      i === index ? { ...wp, [field]: parseFloat(value) || 0 } : wp
+      i === index ? { ...wp, wholesalePrice: parseFloat(value) || 0 } : wp
     );
     setFieldValue('wholesalerPrices', updated);
   };
 
   const getWholesalerInfo = (id) => {
     const wholesaler = wholesalers.find(w => w._id === id);
-    return wholesaler || { pin: 'N/A', storeName: 'Unknown', city: 'Unknown' };
+    return wholesaler || { pin: 'N/A', storeName: 'Unknown', city: 'Unknown', _id: id };
   };
 
   return (
     <Paper sx={{ p: 3, mb: 3 }}>
       <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
-        <Typography variant="h6" color="black">Multiple Wholesaler Pricing</Typography>
-        <Tooltip title="Configure different wholesale prices for different wholesalers">
+        <Typography variant="h6" color="black">Wholesale Pricing</Typography>
+        <Tooltip title="Set wholesale prices for different wholesalers based on MRP">
           <IconButton size="small"><MdInfo /></IconButton>
         </Tooltip>
       </Stack>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        Set custom default and wholesale prices for each wholesaler
+        Configure wholesale prices for each wholesaler (based on MRP: ₹{mrpPrice || 0})
       </Typography>
 
-      {availableWholesalers.length > 0 && (
-        <Paper variant="outlined" sx={{ p: 2, mb: 3, bgcolor: '#fef3c7', borderColor: '#f59e0b' }}>
-          <Typography variant="subtitle2" color="#d97706" gutterBottom>➕ Add Pricing for a Wholesaler</Typography>
-          <Grid container spacing={2}>
-            <Grid item xs={12} sm={4}>
-              <TextField select label="Select Wholesaler" fullWidth size="small" value={selectedWholesaler} onChange={(e) => setSelectedWholesaler(e.target.value)}>
-                <MenuItem value=""><em>Select Wholesaler</em></MenuItem>
-                {availableWholesalers.map((w) => (
-                  <MenuItem key={w._id} value={w._id}>{w.pin} - {w.storeName} ({w.city})</MenuItem>
-                ))}
-              </TextField>
-            </Grid>
-            <Grid item xs={12} sm={3}>
-              <TextField label="Default Price (₹)" type="number" fullWidth size="small" value={newDefaultPrice} onChange={(e) => setNewDefaultPrice(e.target.value)} InputProps={{ inputProps: { min: 0, step: 1 } }} />
-            </Grid>
-            <Grid item xs={12} sm={3}>
-              <TextField label="Wholesale Price (₹)" type="number" fullWidth size="small" value={newWholesalePrice} onChange={(e) => setNewWholesalePrice(e.target.value)} InputProps={{ inputProps: { min: 0, step: 1 } }} />
-            </Grid>
-            <Grid item xs={12} sm={2}>
-              <Button fullWidth variant="contained" onClick={addWholesalerPrice} sx={{ ...redButtonStyle, height: '40px' }}>Add</Button>
-            </Grid>
+      {/* Add New Wholesale Price Form */}
+      <Paper variant="outlined" sx={{ p: 2, mb: 3, bgcolor: '#fef3c7', borderColor: '#f59e0b' }}>
+        <Typography variant="subtitle2" color="#d97706" gutterBottom>➕ Add Wholesale Price</Typography>
+        <Grid container spacing={2}>
+          <Grid item xs={12} sm={6}>
+            <TextField 
+              select 
+              label="Select Wholesaler" 
+              fullWidth 
+              size="small" 
+              value={selectedWholesaler} 
+              onChange={(e) => setSelectedWholesaler(e.target.value)}
+            >
+              <MenuItem value=""><em>Select Wholesaler</em></MenuItem>
+              {availableWholesalers.map((w) => (
+                <MenuItem key={w._id} value={w._id}>
+                  {w.pin} - {w.storeName} ({w.city})
+                </MenuItem>
+              ))}
+            </TextField>
           </Grid>
-        </Paper>
-      )}
+          <Grid item xs={12} sm={4}>
+            <TextField
+              label="Wholesale Price (₹)"
+              type="number"
+              fullWidth
+              size="small"
+              value={newWholesalePrice}
+              onChange={(e) => setNewWholesalePrice(e.target.value)}
+              InputProps={{ inputProps: { min: 0, step: 1 } }}
+              helperText={`MRP: ₹${mrpPrice || 0}`}
+            />
+          </Grid>
+          <Grid item xs={12} sm={2}>
+            <Button 
+              fullWidth 
+              variant="contained" 
+              onClick={addWholesalerPrice} 
+              sx={{ ...redButtonStyle, height: '56px' }}
+            >
+              Add
+            </Button>
+          </Grid>
+        </Grid>
+      </Paper>
 
-      {wholesalerPrices.length > 0 ? (
+      {/* Existing Wholesaler Prices Table */}
+      {wholesalerPrices && wholesalerPrices.length > 0 ? (
         <>
-          <Typography variant="subtitle2" color="text.secondary" gutterBottom>📋 Configured Wholesalers ({wholesalerPrices.length})</Typography>
+          <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+            📋 Configured Wholesalers ({wholesalerPrices.length})
+          </Typography>
           <TableContainer component={Paper} variant="outlined">
             <Table size="small">
               <TableHead>
@@ -250,8 +271,9 @@ function WholesalerPriceManager({ wholesalerPrices, setFieldValue, wholesalers }
                   <TableCell><strong>Wholesaler</strong></TableCell>
                   <TableCell><strong>PIN</strong></TableCell>
                   <TableCell><strong>City</strong></TableCell>
-                  <TableCell align="right"><strong>Default Price (₹)</strong></TableCell>
+                  <TableCell align="right"><strong>MRP (₹)</strong></TableCell>
                   <TableCell align="right"><strong>Wholesale Price (₹)</strong></TableCell>
+                  <TableCell align="right"><strong>Savings (₹)</strong></TableCell>
                   <TableCell align="center"><strong>Discount %</strong></TableCell>
                   <TableCell align="center"><strong>Actions</strong></TableCell>
                 </TableRow>
@@ -259,23 +281,40 @@ function WholesalerPriceManager({ wholesalerPrices, setFieldValue, wholesalers }
               <TableBody>
                 {wholesalerPrices.map((wp, index) => {
                   const wholesaler = getWholesalerInfo(wp.wholesalerId);
-                  const discountPercent = ((wp.defaultPrice - wp.wholesalePrice) / wp.defaultPrice * 100).toFixed(1);
+                  const mrp = mrpPrice || 0;
+                  const savings = mrp - (wp.wholesalePrice || 0);
+                  const discountPercent = mrp > 0 ? ((savings / mrp) * 100).toFixed(1) : 0;
+                  
                   return (
                     <TableRow key={index}>
                       <TableCell>{wholesaler.storeName}</TableCell>
                       <TableCell><Chip label={wholesaler.pin} size="small" variant="outlined" /></TableCell>
                       <TableCell>{wholesaler.city}</TableCell>
+                      <TableCell align="right">₹{mrp.toLocaleString()}</TableCell>
                       <TableCell align="right">
-                        <TextField type="number" value={wp.defaultPrice} onChange={(e) => updateWholesalerPrice(index, 'defaultPrice', e.target.value)} size="small" sx={{ width: '110px' }} InputProps={{ inputProps: { min: 0, step: 1 } }} />
+                        <TextField
+                          type="number"
+                          value={wp.wholesalePrice}
+                          onChange={(e) => updateWholesalerPrice(index, e.target.value)}
+                          size="small"
+                          sx={{ width: '110px' }}
+                          InputProps={{ inputProps: { min: 0, step: 1 } }}
+                        />
                       </TableCell>
-                      <TableCell align="right">
-                        <TextField type="number" value={wp.wholesalePrice} onChange={(e) => updateWholesalerPrice(index, 'wholesalePrice', e.target.value)} size="small" sx={{ width: '110px' }} InputProps={{ inputProps: { min: 0, step: 1 } }} />
+                      <TableCell align="right" sx={{ color: savings > 0 ? 'green' : 'red', fontWeight: 'bold' }}>
+                        ₹{savings.toLocaleString()}
                       </TableCell>
                       <TableCell align="center">
-                        <Chip label={`${discountPercent}%`} size="small" color={discountPercent > 0 ? "success" : "default"} />
+                        <Chip 
+                          label={`${discountPercent}%`} 
+                          size="small" 
+                          color={discountPercent > 0 ? "success" : "default"} 
+                        />
                       </TableCell>
                       <TableCell align="center">
-                        <IconButton color="error" size="small" onClick={() => removeWholesalerPrice(index)}><MdDelete /></IconButton>
+                        <IconButton color="error" size="small" onClick={() => removeWholesalerPrice(index)}>
+                          <MdDelete />
+                        </IconButton>
                       </TableCell>
                     </TableRow>
                   );
@@ -285,7 +324,9 @@ function WholesalerPriceManager({ wholesalerPrices, setFieldValue, wholesalers }
           </TableContainer>
         </>
       ) : (
-        <Typography variant="body2" color="text.secondary" textAlign="center" py={3}>No wholesaler pricing configured. Add pricing for different wholesalers above.</Typography>
+        <Typography variant="body2" color="text.secondary" textAlign="center" py={3}>
+          No wholesale prices configured. Add wholesale prices above.
+        </Typography>
       )}
     </Paper>
   );
@@ -451,7 +492,6 @@ export default function ProductData() {
   const [editingProduct, setEditingProduct] = useState(null);
   const [deleteDialog, setDeleteDialog] = useState({ open: false, productId: null, productName: '' });
   const [currentPage, setCurrentPage] = useState(1);
-  const [showCanvasPassword, setShowCanvasPassword] = useState(false);
   const PRODUCTS_PER_PAGE = 20;
 
   const showSnackbar = (message, severity = 'success') => setSnackbar({ open: true, message, severity });
@@ -460,11 +500,17 @@ export default function ProductData() {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const [catData, subData, prodData, wholeData] = await Promise.all([getCategories(), getSubCategories(), getProduct(), getWholesalers()]);
+        const [catData, subData, prodData, wholeData] = await Promise.all([
+          getCategories(), 
+          getSubCategories(), 
+          getProduct(), 
+          getWholesalers()
+        ]);
         setCategories(catData.categories || catData || []);
         setSubCategories(subData.subcategories || subData || []);
         setProducts(prodData.data || prodData || []);
         setWholesalers(wholeData.wholesalers || wholeData.data || wholeData || []);
+        console.log('Wholesalers loaded:', wholeData);
       } catch (err) {
         console.error(err);
         showSnackbar('Failed to load data', 'error');
@@ -487,19 +533,6 @@ export default function ProductData() {
     }
   }, [editingProduct, filterSubCategories]);
 
-  const calculatePricing = useCallback((originalPrice, discountedMRP, setFieldValue) => {
-    if (originalPrice && discountedMRP && discountedMRP <= originalPrice) {
-      const discount = (((originalPrice - discountedMRP) / originalPrice) * 100).toFixed(2);
-      setFieldValue('discount', parseFloat(discount));
-      setFieldValue('amountSaving', originalPrice - discountedMRP);
-      setFieldValue('price', discountedMRP);
-    } else {
-      setFieldValue('discount', 0);
-      setFieldValue('amountSaving', 0);
-      setFieldValue('price', originalPrice || 0);
-    }
-  }, []);
-
   const handleSubmit = async (values, { resetForm, setSubmitting }) => {
     setSubmitting(true);
     setLoading(true);
@@ -515,9 +548,6 @@ export default function ProductData() {
         stock: parseInt(values.stock) || 0,
         price: parseFloat(values.price),
         originalPrice: values.originalPrice ? parseFloat(values.originalPrice) : null,
-        discountedMRP: values.discountedMRP ? parseFloat(values.discountedMRP) : null,
-        discount: parseFloat(values.discount),
-        amountSaving: parseFloat(values.amountSaving),
         rating: parseFloat(values.rating) || 0,
         reviews: parseInt(values.reviews) || 0,
         popular: values.popular,
@@ -534,6 +564,8 @@ export default function ProductData() {
         more_details: values.more_details,
         wholesalerPrices: values.wholesalerPrices || [],
       };
+
+      console.log('Submitting product data:', submitData);
 
       if (editingProduct) {
         const res = await updateProduct(editingProduct._id, submitData);
@@ -565,11 +597,8 @@ export default function ProductData() {
     pack: editingProduct?.pack || '',
     description: editingProduct?.description || '',
     stock: editingProduct?.stock || 0,
-    originalPrice: editingProduct?.originalPrice || '',
-    discountedMRP: editingProduct?.discountedMRP || '',
     price: editingProduct?.price || 0,
-    discount: editingProduct?.discount || 0,
-    amountSaving: editingProduct?.amountSaving || 0,
+    originalPrice: editingProduct?.originalPrice || '',
     rating: editingProduct?.rating || 0,
     reviews: editingProduct?.reviews || 0,
     popular: editingProduct?.popular || false,
@@ -602,7 +631,11 @@ export default function ProductData() {
         </Alert>
       )}
 
-      <Formik enableReinitialize initialValues={getInitialValues()} onSubmit={handleSubmit}>
+      <Formik 
+        enableReinitialize 
+        initialValues={getInitialValues()} 
+        onSubmit={handleSubmit}
+      >
         {({ values, errors, touched, setFieldValue, handleChange, isSubmitting, resetForm }) => (
           <Form>
             <Grid container spacing={3}>
@@ -657,8 +690,13 @@ export default function ProductData() {
                   </Grid>
                 </Paper>
 
-                {/* Multiple Wholesaler Pricing */}
-                <WholesalerPriceManager wholesalerPrices={values.wholesalerPrices} setFieldValue={setFieldValue} wholesalers={wholesalers} />
+                {/* Multiple Wholesale Pricing */}
+                <WholesalerPriceManager 
+                  wholesalerPrices={values.wholesalerPrices} 
+                  setFieldValue={setFieldValue} 
+                  wholesalers={wholesalers}
+                  mrpPrice={values.price}
+                />
 
                 {/* Specifications */}
                 <SpecificationsBuilder specifications={values.specifications} setFieldValue={setFieldValue} />
@@ -779,10 +817,7 @@ export default function ProductData() {
                   <Grid container spacing={2}>
                     <Grid item xs={6}><TextField name="stock" label="Stock" type="number" fullWidth value={values.stock} onChange={handleChange} /></Grid>
                     <Grid item xs={6}><TextField name="price" label="MRP Price *" type="number" fullWidth value={values.price} onChange={handleChange} error={touched.price && !!errors.price} helperText={touched.price && errors.price} /></Grid>
-                    <Grid item xs={6}><TextField name="originalPrice" label="Original Price" type="number" fullWidth value={values.originalPrice} onChange={(e) => { handleChange(e); calculatePricing(e.target.value, values.discountedMRP || values.price, setFieldValue); }} /></Grid>
-                    <Grid item xs={6}><TextField name="discountedMRP" label="Discounted MRP" type="number" fullWidth value={values.discountedMRP} onChange={(e) => { handleChange(e); calculatePricing(values.originalPrice || values.price, e.target.value, setFieldValue); }} /></Grid>
-                    <Grid item xs={4}><TextField name="discount" label="Discount %" fullWidth value={values.discount} InputProps={{ readOnly: true }} /></Grid>
-                    <Grid item xs={8}><TextField name="amountSaving" label="Amount Saving" fullWidth value={values.amountSaving} InputProps={{ readOnly: true }} /></Grid>
+                    <Grid item xs={12}><TextField name="originalPrice" label="Sale Price (Optional)" type="number" fullWidth value={values.originalPrice} onChange={handleChange} placeholder="For discounted sale price" helperText="Leave empty if no sale" /></Grid>
                   </Grid>
                 </Paper>
 
@@ -793,7 +828,8 @@ export default function ProductData() {
                     <CardContent>
                       <Typography variant="h6">{values.productName || values.name}</Typography>
                       <Typography variant="body2" color="text.secondary">{values.description?.slice(0, 100)}...</Typography>
-                      <Typography variant="h6" color="error">₹{values.price}</Typography>
+                      <Typography variant="h6" color="error">MRP: ₹{values.price}</Typography>
+                      {values.originalPrice && <Typography variant="body2" color="success.main">Sale Price: ₹{values.originalPrice}</Typography>}
                       {values.popular && <Chip label="Popular" size="small" color="warning" sx={{ mt: 1, mr: 1 }} />}
                       {values.active && <Chip label="Active" size="small" color="success" sx={{ mt: 1 }} />}
                     </CardContent>
@@ -816,24 +852,48 @@ export default function ProductData() {
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell>Image</TableCell><TableCell>Name</TableCell><TableCell>Category</TableCell><TableCell>Sub Category</TableCell>
-                <TableCell>Wholesalers</TableCell><TableCell>Stock</TableCell><TableCell>Price (₹)</TableCell><TableCell>Status</TableCell><TableCell>Actions</TableCell>
+                <TableCell>Image</TableCell>
+                <TableCell>Name</TableCell>
+                <TableCell>Category</TableCell>
+                <TableCell>Sub Category</TableCell>
+                <TableCell>Wholesalers</TableCell>
+                <TableCell>Stock</TableCell>
+                <TableCell>MRP (₹)</TableCell>
+                <TableCell>Best Wholesale (₹)</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell>Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {products.slice((currentPage - 1) * PRODUCTS_PER_PAGE, currentPage * PRODUCTS_PER_PAGE).map(p => (
-                <TableRow key={p._id} hover>
-                  <TableCell><img src={p.image || p.images?.[0] || 'https://via.placeholder.com/50'} alt={p.name} style={{ width: 50, height: 50, borderRadius: 4, objectFit: 'cover' }} /></TableCell>
-                  <TableCell><Typography variant="body2" fontWeight={600}>{p.productName || p.name}</Typography><Typography variant="caption" color="text.secondary">{p.description?.slice(0, 40)}</Typography></TableCell>
-                  <TableCell>{p.category?.name || '-'}</TableCell>
-                  <TableCell>{p.subCategory?.name || '-'}</TableCell>
-                  <TableCell><Chip label={`${p.wholesalerPrices?.length || 0} wholesalers`} size="small" color={p.wholesalerPrices?.length > 0 ? "primary" : "default"} /></TableCell>
-                  <TableCell>{p.stock ?? '-'}</TableCell>
-                  <TableCell>₹{p.price}</TableCell>
-                  <TableCell><Switch checked={p.active} onChange={() => toggleProductStatus(p._id).then(res => setProducts(prev => prev.map(prod => prod._id === p._id ? { ...prod, active: res.active } : prod)))} color="success" size="small" /></TableCell>
-                  <TableCell><IconButton color="primary" onClick={() => setEditingProduct(p)}><MdEdit /></IconButton><IconButton color="error" onClick={() => setDeleteDialog({ open: true, productId: p._id, productName: p.productName || p.name })}><MdDelete /></IconButton></TableCell>
-                </TableRow>
-              ))}
+              {products.slice((currentPage - 1) * PRODUCTS_PER_PAGE, currentPage * PRODUCTS_PER_PAGE).map(p => {
+                const bestPrice = p.wholesalerPrices?.length > 0 
+                  ? Math.min(...p.wholesalerPrices.map(wp => wp.wholesalePrice))
+                  : null;
+                return (
+                  <TableRow key={p._id} hover>
+                    <TableCell><img src={p.image || p.images?.[0] || 'https://via.placeholder.com/50'} alt={p.name} style={{ width: 50, height: 50, borderRadius: 4, objectFit: 'cover' }} /></TableCell>
+                    <TableCell>
+                      <Typography variant="body2" fontWeight={600}>{p.productName || p.name}</Typography>
+                      <Typography variant="caption" color="text.secondary">{p.description?.slice(0, 40)}</Typography>
+                    </TableCell>
+                    <TableCell>{p.category?.name || '-'}</TableCell>
+                    <TableCell>{p.subCategory?.name || '-'}</TableCell>
+                    <TableCell>
+                      <Tooltip title={p.wholesalerPrices?.map(wp => `₹${wp.wholesalePrice}`).join(', ') || 'No wholesalers'}>
+                        <Chip label={`${p.wholesalerPrices?.length || 0} wholesalers`} size="small" color={p.wholesalerPrices?.length > 0 ? "primary" : "default"} />
+                      </Tooltip>
+                    </TableCell>
+                    <TableCell>{p.stock ?? '-'}</TableCell>
+                    <TableCell>₹{p.price?.toLocaleString()}</TableCell>
+                    <TableCell>{bestPrice ? `₹${bestPrice.toLocaleString()}` : '-'}</TableCell>
+                    <TableCell><Switch checked={p.active} onChange={() => toggleProductStatus(p._id).then(res => setProducts(prev => prev.map(prod => prod._id === p._id ? { ...prod, active: res.active } : prod)))} color="success" size="small" /></TableCell>
+                    <TableCell>
+                      <IconButton color="primary" onClick={() => setEditingProduct(p)}><MdEdit /></IconButton>
+                      <IconButton color="error" onClick={() => setDeleteDialog({ open: true, productId: p._id, productName: p.productName || p.name })}><MdDelete /></IconButton>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </TableContainer>
