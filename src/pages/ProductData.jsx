@@ -1,122 +1,147 @@
 /* eslint-disable react/prop-types */
 /* eslint-disable */
-import { FieldArray, Formik, Form } from "formik";
-import React, { useState, useEffect, useCallback } from "react";
-import axios from "axios";
+import { FieldArray, Formik, Form } from 'formik';
+import React, { useState, useEffect, useCallback } from 'react';
+import axios from 'axios';
 import {
-  Alert, Box, Button, Container, Grid, IconButton, Paper, Snackbar,
-  TextField, Typography, MenuItem, Table, TableBody, TableCell,
-  TableContainer, TableHead, TableRow, Card, CardContent, CardMedia,
-  Dialog, DialogTitle, DialogContent, DialogActions, Switch,
-  FormControlLabel, Chip, Divider, Select, InputLabel, FormControl,
-  Autocomplete, CircularProgress,
-} from "@mui/material";
-import { MdEdit, MdDelete, MdAdd, MdRemove, MdCloudUpload } from "react-icons/md";
-import { getCategories } from "src/services/categoryService";
-import { getSubCategories } from "src/services/SubcategoryService";
-import { 
-  createProduct, 
-  deleteProduct, 
-  getProduct, 
+  Alert,
+  Box,
+  Button,
+  Container,
+  Grid,
+  IconButton,
+  Paper,
+  Snackbar,
+  TextField,
+  Typography,
+  MenuItem,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Card,
+  CardContent,
+  CardMedia,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Switch,
+  FormControlLabel,
+  Chip,
+  Autocomplete,
+  CircularProgress,
+  Divider,
+} from '@mui/material';
+import { MdEdit, MdDelete, MdAdd, MdRemove, MdCloudUpload } from 'react-icons/md';
+import { getCategories } from 'src/services/categoryService';
+import { getSubCategories } from 'src/services/SubcategoryService';
+import {
+  createProduct,
+  deleteProduct,
+  getProduct,
   updateProduct,
-  getProductsByCategory,
-  getProductsBySubCategory,
-  getPopularProducts,
   toggleProductStatus,
-  computePrice 
-} from "src/services/ProductService";
+  getWholesalers,
+} from 'src/services/ProductService';
 
-const CLOUDINARY_UPLOAD_PRESET = "market_data";
-const CLOUDINARY_CLOUD_NAME = "drq4o4qix";
+const CLOUDINARY_UPLOAD_PRESET = 'market_data';
+const CLOUDINARY_CLOUD_NAME = 'drq4o4qix';
 
-const CUSTOMIZATION_TYPES = ["radio", "checkbox", "dropdown", "text", "textarea", "file"];
-const SUPER_TAGS_OPTIONS = ["design1", "design2", "design3", "design4", "design5"];
+const CUSTOMIZATION_TYPES = ['radio', 'checkbox', 'dropdown', 'text', 'textarea', 'file'];
+const SUPER_TAGS_OPTIONS = ['design1', 'design2', 'design3', 'design4', 'design5'];
 
 // Updated emptyCustomization with proper option structure
 const emptyCustomization = {
-  id: "",
-  label: "",
-  type: "radio",
-  options: [], // Will store { label: "", priceAdjustment: 0 }
-  placeholder: "",
+  id: '',
+  label: '',
+  type: 'radio',
+  options: [],
+  placeholder: '',
   required: false,
   multiple: false,
   files: [],
   value: null,
-  showIf: { field: "", value: "" },
+  showIf: { field: '', value: '' },
 };
 
-const emptyMedia = { type: "image", url: "" };
-const emptySpecification = { key: "", value: "" };
-// Updated offer structure
-const emptyOffer = { title: "", code: "", discountPercent: 0, active: true, expiryDate: "" };
+const emptySpecification = { key: '', value: '' };
+const emptyOffer = { title: '', code: '', discountPercent: 0, active: true, expiryDate: '' };
 
 const redButtonStyle = {
-  bgcolor: "#dc2626",
-  color: "white",
-  "&:hover": { bgcolor: "#b91c1c" },
+  bgcolor: '#dc2626',
+  color: 'white',
+  '&:hover': { bgcolor: '#b91c1c' },
 };
 
 const redOutlinedButtonStyle = {
-  color: "#dc2626",
-  borderColor: "#dc2626",
-  "&:hover": { borderColor: "#b91c1c", bgcolor: "rgba(220,38,38,0.04)" },
+  color: '#dc2626',
+  borderColor: '#dc2626',
+  '&:hover': { borderColor: '#b91c1c', bgcolor: 'rgba(220,38,38,0.04)' },
 };
 
-// ─── Updated Customization Builder with price adjustments ───────────────────
+// ─── Customization Builder ───────────────────────────────────────────────────
 function CustomizationBuilder({ customizations, setFieldValue }) {
   const add = () =>
-    setFieldValue("customizations", [...customizations, { ...emptyCustomization, id: `field_${Date.now()}` }]);
+    setFieldValue('customizations', [
+      ...customizations,
+      { ...emptyCustomization, id: `field_${Date.now()}` },
+    ]);
 
   const remove = (i) =>
-    setFieldValue("customizations", customizations.filter((_, idx) => idx !== i));
+    setFieldValue(
+      'customizations',
+      customizations.filter((_, idx) => idx !== i)
+    );
 
   const update = (i, key, value) => {
-    const updated = customizations.map((c, idx) =>
-      idx === i ? { ...c, [key]: value } : c
-    );
-    setFieldValue("customizations", updated);
+    const updated = customizations.map((c, idx) => (idx === i ? { ...c, [key]: value } : c));
+    setFieldValue('customizations', updated);
   };
 
   const updateShowIf = (i, key, value) => {
     const updated = customizations.map((c, idx) =>
       idx === i ? { ...c, showIf: { ...c.showIf, [key]: value } } : c
     );
-    setFieldValue("customizations", updated);
+    setFieldValue('customizations', updated);
   };
 
   const addOption = (i) => {
     const updated = customizations.map((c, idx) =>
-      idx === i ? { ...c, options: [...(c.options || []), { label: "", priceAdjustment: 0 }] } : c
+      idx === i ? { ...c, options: [...(c.options || []), { label: '', priceAdjustment: 0 }] } : c
     );
-    setFieldValue("customizations", updated);
+    setFieldValue('customizations', updated);
   };
 
   const updateOption = (i, oi, field, value) => {
     const updated = customizations.map((c, idx) =>
       idx === i
-        ? { 
-            ...c, 
-            options: c.options.map((o, oidx) => 
-              oidx === oi ? { ...o, [field]: field === "priceAdjustment" ? parseFloat(value) || 0 : value } : o
-            ) 
+        ? {
+            ...c,
+            options: c.options.map((o, oidx) =>
+              oidx === oi
+                ? { ...o, [field]: field === 'priceAdjustment' ? parseFloat(value) || 0 : value }
+                : o
+            ),
           }
         : c
     );
-    setFieldValue("customizations", updated);
+    setFieldValue('customizations', updated);
   };
 
   const removeOption = (i, oi) => {
     const updated = customizations.map((c, idx) =>
       idx === i ? { ...c, options: c.options.filter((_, oidx) => oidx !== oi) } : c
     );
-    setFieldValue("customizations", updated);
+    setFieldValue('customizations', updated);
   };
 
   const uploadFileToCloudinary = async (file) => {
     const formData = new FormData();
-    formData.append("file", file);
-    formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
+    formData.append('file', file);
+    formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
     const res = await axios.post(
       `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
       formData
@@ -127,24 +152,32 @@ function CustomizationBuilder({ customizations, setFieldValue }) {
   const handleFileUpload = async (i, files) => {
     if (!files?.length) return;
     try {
-      const urls = await Promise.all(Array.from(files).map(f => uploadFileToCloudinary(f)));
+      const urls = await Promise.all(Array.from(files).map((f) => uploadFileToCloudinary(f)));
       const currentFiles = customizations[i]?.files || [];
-      update(i, "files", [...currentFiles, ...urls]);
+      update(i, 'files', [...currentFiles, ...urls]);
     } catch (error) {
-      console.error("Upload failed:", error);
+      console.error('Upload failed:', error);
     }
   };
 
   const removeFile = (i, fileIndex) => {
     const updatedFiles = customizations[i].files.filter((_, idx) => idx !== fileIndex);
-    update(i, "files", updatedFiles);
+    update(i, 'files', updatedFiles);
   };
 
   return (
     <Paper sx={{ p: 3, mb: 3 }}>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-        <Typography variant="h6" color="black">Customizations</Typography>
-        <Button startIcon={<MdAdd />} onClick={add} size="small" variant="outlined" sx={redOutlinedButtonStyle}>
+        <Typography variant="h6" color="black">
+          Customizations
+        </Typography>
+        <Button
+          startIcon={<MdAdd />}
+          onClick={add}
+          size="small"
+          variant="outlined"
+          sx={redOutlinedButtonStyle}
+        >
           Add Field
         </Button>
       </Box>
@@ -156,9 +189,11 @@ function CustomizationBuilder({ customizations, setFieldValue }) {
       )}
 
       {customizations.map((c, i) => (
-        <Paper key={i} variant="outlined" sx={{ p: 2, mb: 2, bgcolor: "#fafafa" }}>
+        <Paper key={i} variant="outlined" sx={{ p: 2, mb: 2, bgcolor: '#fafafa' }}>
           <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
-            <Typography variant="subtitle2" color="#dc2626">Field {i + 1}</Typography>
+            <Typography variant="subtitle2" color="#dc2626">
+              Field {i + 1}
+            </Typography>
             <IconButton size="small" color="error" onClick={() => remove(i)}>
               <MdDelete />
             </IconButton>
@@ -171,7 +206,7 @@ function CustomizationBuilder({ customizations, setFieldValue }) {
                 fullWidth
                 size="small"
                 value={c.id}
-                onChange={(e) => update(i, "id", e.target.value)}
+                onChange={(e) => update(i, 'id', e.target.value)}
                 helperText="e.g. size, finish, quantity"
               />
             </Grid>
@@ -181,7 +216,7 @@ function CustomizationBuilder({ customizations, setFieldValue }) {
                 fullWidth
                 size="small"
                 value={c.label}
-                onChange={(e) => update(i, "label", e.target.value)}
+                onChange={(e) => update(i, 'label', e.target.value)}
                 helperText="e.g. Card Size"
               />
             </Grid>
@@ -192,44 +227,65 @@ function CustomizationBuilder({ customizations, setFieldValue }) {
                 fullWidth
                 size="small"
                 value={c.type}
-                onChange={(e) => update(i, "type", e.target.value)}
+                onChange={(e) => update(i, 'type', e.target.value)}
               >
                 {CUSTOMIZATION_TYPES.map((t) => (
-                  <MenuItem key={t} value={t}>{t}</MenuItem>
+                  <MenuItem key={t} value={t}>
+                    {t}
+                  </MenuItem>
                 ))}
               </TextField>
             </Grid>
 
             <Grid item xs={6}>
               <FormControlLabel
-                control={<Switch checked={c.required || false} onChange={(e) => update(i, "required", e.target.checked)} color="error" />}
+                control={
+                  <Switch
+                    checked={c.required || false}
+                    onChange={(e) => update(i, 'required', e.target.checked)}
+                    color="error"
+                  />
+                }
                 label="Required"
               />
             </Grid>
             <Grid item xs={6}>
               <FormControlLabel
-                control={<Switch checked={c.multiple || false} onChange={(e) => update(i, "multiple", e.target.checked)} color="error" />}
+                control={
+                  <Switch
+                    checked={c.multiple || false}
+                    onChange={(e) => update(i, 'multiple', e.target.checked)}
+                    color="error"
+                  />
+                }
                 label="Multiple Selection"
               />
             </Grid>
 
-            {["text", "textarea"].includes(c.type) && (
+            {['text', 'textarea'].includes(c.type) && (
               <Grid item xs={12}>
                 <TextField
                   label="Placeholder"
                   fullWidth
                   size="small"
                   value={c.placeholder}
-                  onChange={(e) => update(i, "placeholder", e.target.value)}
+                  onChange={(e) => update(i, 'placeholder', e.target.value)}
                 />
               </Grid>
             )}
 
-            {["radio", "checkbox", "dropdown"].includes(c.type) && (
+            {['radio', 'checkbox', 'dropdown'].includes(c.type) && (
               <Grid item xs={12}>
                 <Box display="flex" alignItems="center" gap={1} mb={1}>
-                  <Typography variant="body2" color="text.secondary">Options (with price adjustments)</Typography>
-                  <Button size="small" startIcon={<MdAdd />} onClick={() => addOption(i)} sx={{ ...redOutlinedButtonStyle, py: 0 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    Options (with price adjustments)
+                  </Typography>
+                  <Button
+                    size="small"
+                    startIcon={<MdAdd />}
+                    onClick={() => addOption(i)}
+                    sx={{ ...redOutlinedButtonStyle, py: 0 }}
+                  >
                     Add
                   </Button>
                 </Box>
@@ -239,17 +295,17 @@ function CustomizationBuilder({ customizations, setFieldValue }) {
                       size="small"
                       fullWidth
                       placeholder={`Option ${oi + 1}`}
-                      value={opt.label || ""}
-                      onChange={(e) => updateOption(i, oi, "label", e.target.value)}
+                      value={opt.label || ''}
+                      onChange={(e) => updateOption(i, oi, 'label', e.target.value)}
                     />
                     <TextField
                       size="small"
                       type="number"
                       placeholder="Price adj."
                       value={opt.priceAdjustment || 0}
-                      onChange={(e) => updateOption(i, oi, "priceAdjustment", e.target.value)}
-                      sx={{ width: "120px" }}
-                      InputProps={{ inputProps: { min: -1000, step: 10 } }}
+                      onChange={(e) => updateOption(i, oi, 'priceAdjustment', e.target.value)}
+                      sx={{ width: '120px' }}
+                      InputProps={{ inputProps: { min: -1000, step: "any" } }}
                     />
                     <IconButton size="small" color="error" onClick={() => removeOption(i, oi)}>
                       <MdRemove />
@@ -262,9 +318,11 @@ function CustomizationBuilder({ customizations, setFieldValue }) {
               </Grid>
             )}
 
-            {c.type === "file" && (
+            {c.type === 'file' && (
               <Grid item xs={12}>
-                <Typography variant="body2" color="text.secondary" gutterBottom>Uploaded Files</Typography>
+                <Typography variant="body2" color="text.secondary" gutterBottom>
+                  Uploaded Files
+                </Typography>
                 <Button
                   component="label"
                   variant="outlined"
@@ -305,8 +363,8 @@ function CustomizationBuilder({ customizations, setFieldValue }) {
                     size="small"
                     fullWidth
                     placeholder="e.g. printType"
-                    value={c.showIf?.field || ""}
-                    onChange={(e) => updateShowIf(i, "field", e.target.value)}
+                    value={c.showIf?.field || ''}
+                    onChange={(e) => updateShowIf(i, 'field', e.target.value)}
                   />
                 </Grid>
                 <Grid item xs={6}>
@@ -315,8 +373,8 @@ function CustomizationBuilder({ customizations, setFieldValue }) {
                     size="small"
                     fullWidth
                     placeholder="e.g. Double Side"
-                    value={c.showIf?.value || ""}
-                    onChange={(e) => updateShowIf(i, "value", e.target.value)}
+                    value={c.showIf?.value || ''}
+                    onChange={(e) => updateShowIf(i, 'value', e.target.value)}
                   />
                 </Grid>
               </Grid>
@@ -328,22 +386,34 @@ function CustomizationBuilder({ customizations, setFieldValue }) {
   );
 }
 
-// ─── Specifications Builder (unchanged) ─────────────────────────────────────
+// ─── Specifications Builder ─────────────────────────────────────────────────
 function SpecificationsBuilder({ specifications, setFieldValue }) {
-  const add = () => setFieldValue("specifications", [...specifications, { key: "", value: "" }]);
-  const remove = (i) => setFieldValue("specifications", specifications.filter((_, idx) => idx !== i));
+  const add = () => setFieldValue('specifications', [...specifications, { key: '', value: '' }]);
+  const remove = (i) =>
+    setFieldValue(
+      'specifications',
+      specifications.filter((_, idx) => idx !== i)
+    );
   const update = (i, key, value) => {
     const updated = specifications.map((spec, idx) =>
       idx === i ? { ...spec, [key]: value } : spec
     );
-    setFieldValue("specifications", updated);
+    setFieldValue('specifications', updated);
   };
 
   return (
     <Paper sx={{ p: 3, mb: 3 }}>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-        <Typography variant="h6" color="black">Specifications</Typography>
-        <Button startIcon={<MdAdd />} onClick={add} size="small" variant="outlined" sx={redOutlinedButtonStyle}>
+        <Typography variant="h6" color="black">
+          Specifications
+        </Typography>
+        <Button
+          startIcon={<MdAdd />}
+          onClick={add}
+          size="small"
+          variant="outlined"
+          sx={redOutlinedButtonStyle}
+        >
           Add Specification
         </Button>
       </Box>
@@ -354,7 +424,7 @@ function SpecificationsBuilder({ specifications, setFieldValue }) {
             size="small"
             fullWidth
             value={spec.key}
-            onChange={(e) => update(i, "key", e.target.value)}
+            onChange={(e) => update(i, 'key', e.target.value)}
             placeholder="e.g., Material"
           />
           <TextField
@@ -362,7 +432,7 @@ function SpecificationsBuilder({ specifications, setFieldValue }) {
             size="small"
             fullWidth
             value={spec.value}
-            onChange={(e) => update(i, "value", e.target.value)}
+            onChange={(e) => update(i, 'value', e.target.value)}
             placeholder="e.g., Premium Paper"
           />
           <IconButton color="error" onClick={() => remove(i)}>
@@ -374,56 +444,77 @@ function SpecificationsBuilder({ specifications, setFieldValue }) {
   );
 }
 
-// ─── Offers Builder (unchanged) ────────────────────────────────────────────
+// ─── Offers Builder ─────────────────────────────────────────────────────────
 function OffersBuilder({ offers, setFieldValue, showSnackbar }) {
-  const [bulkOfferText, setBulkOfferText] = useState("");
-  
-  const add = () => setFieldValue("offers", [...offers, { ...emptyOffer }]);
-  const remove = (i) => setFieldValue("offers", offers.filter((_, idx) => idx !== i));
-  const update = (i, key, value) => {
-    const updated = offers.map((offer, idx) =>
-      idx === i ? { ...offer, [key]: value } : offer
+  const [bulkOfferText, setBulkOfferText] = useState('');
+
+  const add = () => setFieldValue('offers', [...offers, { ...emptyOffer }]);
+  const remove = (i) =>
+    setFieldValue(
+      'offers',
+      offers.filter((_, idx) => idx !== i)
     );
-    setFieldValue("offers", updated);
+  const update = (i, key, value) => {
+    const updated = offers.map((offer, idx) => (idx === i ? { ...offer, [key]: value } : offer));
+    setFieldValue('offers', updated);
   };
 
   const handleBulkAdd = () => {
     if (!bulkOfferText.trim()) {
-      if (showSnackbar) showSnackbar("Please enter at least one offer", "warning");
+      if (showSnackbar) showSnackbar('Please enter at least one offer', 'warning');
       return;
     }
-    
-    const offerTitles = bulkOfferText.split(',').map(item => item.trim()).filter(item => item);
-    
+
+    const offerTitles = bulkOfferText
+      .split(',')
+      .map((item) => item.trim())
+      .filter((item) => item);
+
     if (offerTitles.length === 0) {
-      if (showSnackbar) showSnackbar("No valid offers found", "warning");
+      if (showSnackbar) showSnackbar('No valid offers found', 'warning');
       return;
     }
-    
-    const newOffers = offerTitles.map(title => ({
+
+    const newOffers = offerTitles.map((title) => ({
       title: title,
-      code: title.toLowerCase().replace(/[^a-z0-9]/g, '_').substring(0, 30),
+      code: title
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, '_')
+        .substring(0, 30),
       discountPercent: 0,
       active: true,
-      expiryDate: ""
+      expiryDate: '',
     }));
-    
-    setFieldValue("offers", [...offers, ...newOffers]);
-    setBulkOfferText("");
+
+    setFieldValue('offers', [...offers, ...newOffers]);
+    setBulkOfferText('');
     if (showSnackbar) showSnackbar(`✅ Added ${newOffers.length} offer(s) successfully`);
   };
 
   return (
     <Paper sx={{ p: 3, mb: 3 }}>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-        <Typography variant="h6" color="black">Offers</Typography>
-        <Button startIcon={<MdAdd />} onClick={add} size="small" variant="outlined" sx={redOutlinedButtonStyle}>
+        <Typography variant="h6" color="black">
+          Offers
+        </Typography>
+        <Button
+          startIcon={<MdAdd />}
+          onClick={add}
+          size="small"
+          variant="outlined"
+          sx={redOutlinedButtonStyle}
+        >
           Add Individual Offer
         </Button>
       </Box>
 
-      <Paper variant="outlined" sx={{ p: 2, mb: 3, bgcolor: "#fef3c7", borderColor: "#f59e0b" }}>
-        <Typography variant="subtitle2" color="#d97706" gutterBottom sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+      <Paper variant="outlined" sx={{ p: 2, mb: 3, bgcolor: '#fef3c7', borderColor: '#f59e0b' }}>
+        <Typography
+          variant="subtitle2"
+          color="#d97706"
+          gutterBottom
+          sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
+        >
           <span>🎯</span> Quick Add: What's the Offer? (Comma Separated)
         </Typography>
         <Box display="flex" gap={2} alignItems="flex-start">
@@ -437,13 +528,13 @@ function OffersBuilder({ offers, setFieldValue, showSnackbar }) {
             onChange={(e) => setBulkOfferText(e.target.value)}
             placeholder="Enter multiple offers separated by commas"
             helperText="💡 Separate multiple offers with commas. Each offer will be added as a separate entry."
-            sx={{ bgcolor: "white" }}
+            sx={{ bgcolor: 'white' }}
           />
           <Button
             variant="contained"
             onClick={handleBulkAdd}
             disabled={!bulkOfferText.trim()}
-            sx={{ ...redButtonStyle, minWidth: "120px", height: "56px" }}
+            sx={{ ...redButtonStyle, minWidth: '120px', height: '56px' }}
           >
             Add All Offers
           </Button>
@@ -455,28 +546,31 @@ function OffersBuilder({ offers, setFieldValue, showSnackbar }) {
           📋 Individual Offers ({offers.length})
         </Typography>
         {offers.length > 0 && (
-          <Button 
-            size="small" 
-            color="error" 
-            onClick={() => setFieldValue("offers", [])}
-            sx={{ textTransform: "none" }}
+          <Button
+            size="small"
+            color="error"
+            onClick={() => setFieldValue('offers', [])}
+            sx={{ textTransform: 'none' }}
           >
             Clear All
           </Button>
         )}
       </Box>
-      
+
       {offers.length === 0 && (
         <Typography variant="body2" color="text.secondary" textAlign="center" py={3}>
-          No offers added yet. Use the "Quick Add" above to add multiple offers at once,<br />
+          No offers added yet. Use the "Quick Add" above to add multiple offers at once,
+          <br />
           or click "Add Individual Offer" to add one by one.
         </Typography>
       )}
-      
+
       {offers.map((offer, i) => (
-        <Paper key={i} variant="outlined" sx={{ p: 2, mb: 2, position: "relative" }}>
+        <Paper key={i} variant="outlined" sx={{ p: 2, mb: 2, position: 'relative' }}>
           <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
-            <Typography variant="subtitle2" color="#dc2626">Offer #{i + 1}</Typography>
+            <Typography variant="subtitle2" color="#dc2626">
+              Offer #{i + 1}
+            </Typography>
             <IconButton size="small" color="error" onClick={() => remove(i)}>
               <MdDelete />
             </IconButton>
@@ -488,7 +582,7 @@ function OffersBuilder({ offers, setFieldValue, showSnackbar }) {
                 fullWidth
                 size="small"
                 value={offer.title}
-                onChange={(e) => update(i, "title", e.target.value)}
+                onChange={(e) => update(i, 'title', e.target.value)}
                 placeholder="e.g., Buy 1 Get 1 Free"
                 helperText="Main offer description shown to customers"
               />
@@ -499,7 +593,7 @@ function OffersBuilder({ offers, setFieldValue, showSnackbar }) {
                 fullWidth
                 size="small"
                 value={offer.code}
-                onChange={(e) => update(i, "code", e.target.value)}
+                onChange={(e) => update(i, 'code', e.target.value)}
                 placeholder="e.g., BOGO20"
                 helperText="Unique code for this offer"
               />
@@ -511,7 +605,7 @@ function OffersBuilder({ offers, setFieldValue, showSnackbar }) {
                 fullWidth
                 size="small"
                 value={offer.discountPercent}
-                onChange={(e) => update(i, "discountPercent", parseFloat(e.target.value) || 0)}
+                onChange={(e) => update(i, 'discountPercent', parseFloat(e.target.value) || 0)}
                 inputProps={{ min: 0, max: 100, step: 1 }}
                 helperText="0-100% discount"
               />
@@ -523,14 +617,20 @@ function OffersBuilder({ offers, setFieldValue, showSnackbar }) {
                 fullWidth
                 size="small"
                 InputLabelProps={{ shrink: true }}
-                value={offer.expiryDate?.split('T')[0] || ""}
-                onChange={(e) => update(i, "expiryDate", e.target.value)}
+                value={offer.expiryDate?.split('T')[0] || ''}
+                onChange={(e) => update(i, 'expiryDate', e.target.value)}
                 helperText="Optional: Leave empty for no expiry"
               />
             </Grid>
             <Grid item xs={12}>
               <FormControlLabel
-                control={<Switch checked={offer.active} onChange={(e) => update(i, "active", e.target.checked)} color="error" />}
+                control={
+                  <Switch
+                    checked={offer.active}
+                    onChange={(e) => update(i, 'active', e.target.checked)}
+                    color="error"
+                  />
+                }
                 label="Active"
               />
             </Grid>
@@ -541,12 +641,12 @@ function OffersBuilder({ offers, setFieldValue, showSnackbar }) {
   );
 }
 
-// ─── Media Builder (unchanged) ──────────────────────────────────────────────
+// ─── Media Builder ──────────────────────────────────────────────────────────
 function MediaBuilder({ media, setFieldValue, uploading, setUploading, showSnackbar }) {
-  const uploadToCloudinary = async (file, resourceType = "image") => {
+  const uploadToCloudinary = async (file, resourceType = 'image') => {
     const formData = new FormData();
-    formData.append("file", file);
-    formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
+    formData.append('file', file);
+    formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
     const res = await axios.post(
       `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/${resourceType}/upload`,
       formData
@@ -559,34 +659,61 @@ function MediaBuilder({ media, setFieldValue, uploading, setUploading, showSnack
     if (!files?.length) return;
     setUploading(true);
     try {
-      const urls = await Promise.all(
-        Array.from(files).map((f) => uploadToCloudinary(f, type))
-      );
+      const urls = await Promise.all(Array.from(files).map((f) => uploadToCloudinary(f, type)));
       const newMedia = urls.map((url) => ({ type, url }));
-      setFieldValue("media", [...(media || []), ...newMedia]);
+      setFieldValue('media', [...(media || []), ...newMedia]);
       showSnackbar(`${type}(s) uploaded successfully`);
     } catch {
-      showSnackbar("Upload failed", "error");
+      showSnackbar('Upload failed', 'error');
     } finally {
       setUploading(false);
-      e.target.value = "";
+      e.target.value = '';
     }
   };
 
   const removeMedia = (i) =>
-    setFieldValue("media", media.filter((_, idx) => idx !== i));
+    setFieldValue(
+      'media',
+      media.filter((_, idx) => idx !== i)
+    );
 
   return (
     <Paper sx={{ p: 3, mb: 3 }}>
-      <Typography variant="h6" color="black" gutterBottom>Media (Images & Videos)</Typography>
+      <Typography variant="h6" color="black" gutterBottom>
+        Media (Images & Videos)
+      </Typography>
       <Box display="flex" gap={2} mb={2}>
-        <Button component="label" variant="outlined" disabled={uploading} sx={redOutlinedButtonStyle} size="small">
+        <Button
+          component="label"
+          variant="outlined"
+          disabled={uploading}
+          sx={redOutlinedButtonStyle}
+          size="small"
+        >
           + Images
-          <input type="file" hidden multiple accept="image/*" onChange={(e) => handleFileUpload(e, "image")} />
+          <input
+            type="file"
+            hidden
+            multiple
+            accept="image/*"
+            onChange={(e) => handleFileUpload(e, 'image')}
+          />
         </Button>
-        <Button component="label" variant="outlined" disabled={uploading} sx={redOutlinedButtonStyle} size="small">
+        <Button
+          component="label"
+          variant="outlined"
+          disabled={uploading}
+          sx={redOutlinedButtonStyle}
+          size="small"
+        >
           + Videos
-          <input type="file" hidden multiple accept="video/*" onChange={(e) => handleFileUpload(e, "video")} />
+          <input
+            type="file"
+            hidden
+            multiple
+            accept="video/*"
+            onChange={(e) => handleFileUpload(e, 'video')}
+          />
         </Button>
       </Box>
 
@@ -594,25 +721,52 @@ function MediaBuilder({ media, setFieldValue, uploading, setUploading, showSnack
         {(media || []).map((m, i) => (
           <Grid item xs={4} key={i}>
             <Box position="relative">
-              {m.type === "image" ? (
-                <img src={m.url} alt="" style={{ width: "100%", height: 90, objectFit: "cover", borderRadius: 6 }} />
+              {m.type === 'image' ? (
+                <img
+                  src={m.url}
+                  alt=""
+                  style={{ width: '100%', height: 90, objectFit: 'cover', borderRadius: 6 }}
+                />
               ) : (
                 <Box
-                  sx={{ width: "100%", height: 90, bgcolor: "#1f2937", borderRadius: 1, display: "flex", alignItems: "center", justifyContent: "center" }}
+                  sx={{
+                    width: '100%',
+                    height: 90,
+                    bgcolor: '#1f2937',
+                    borderRadius: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
                 >
-                  <Typography variant="caption" color="white">🎬 Video</Typography>
+                  <Typography variant="caption" color="white">
+                    🎬 Video
+                  </Typography>
                 </Box>
               )}
               <Chip
                 label={m.type}
                 size="small"
-                sx={{ position: "absolute", bottom: 4, left: 4, bgcolor: "rgba(0,0,0,0.6)", color: "white", fontSize: 10 }}
+                sx={{
+                  position: 'absolute',
+                  bottom: 4,
+                  left: 4,
+                  bgcolor: 'rgba(0,0,0,0.6)',
+                  color: 'white',
+                  fontSize: 10,
+                }}
               />
               <IconButton
                 size="small"
                 color="error"
                 onClick={() => removeMedia(i)}
-                sx={{ position: "absolute", top: -6, right: -6, bgcolor: "white", "&:hover": { bgcolor: "#fee2e2" } }}
+                sx={{
+                  position: 'absolute',
+                  top: -6,
+                  right: -6,
+                  bgcolor: 'white',
+                  '&:hover': { bgcolor: '#fee2e2' },
+                }}
               >
                 ✕
               </IconButton>
@@ -626,88 +780,116 @@ function MediaBuilder({ media, setFieldValue, uploading, setUploading, showSnack
 
 // ─── Main Component ──────────────────────────────────────────────────────────
 export default function ProductData() {
-  const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" });
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [uploading, setUploading] = useState(false);
   const [categories, setCategories] = useState([]);
   const [subCategories, setSubCategories] = useState([]);
   const [filteredSubCategories, setFilteredSubCategories] = useState([]);
+  const [wholesalers, setWholesalers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [products, setProducts] = useState([]);
   const [editingProduct, setEditingProduct] = useState(null);
-  const [deleteDialog, setDeleteDialog] = useState({ open: false, productId: null, productName: "" });
+  const [deleteDialog, setDeleteDialog] = useState({
+    open: false,
+    productId: null,
+    productName: '',
+  });
   const [currentPage, setCurrentPage] = useState(1);
-  const [pricePreview, setPricePreview] = useState(null);
-  const [selectedCustomizations, setSelectedCustomizations] = useState({});
   const PRODUCTS_PER_PAGE = 20;
 
-  const showSnackbar = (message, severity = "success") =>
+  const showSnackbar = (message, severity = 'success') =>
     setSnackbar({ open: true, message, severity });
 
+  // Fetch all data on component mount
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [catData, subData, prodData] = await Promise.all([
+        setLoading(true);
+        console.log('Fetching data...');
+
+        const [catData, subData, prodData, wholeData] = await Promise.all([
           getCategories(),
           getSubCategories(),
           getProduct(),
+          getWholesalers(),
         ]);
-        setCategories(catData.categories || []);
-        setSubCategories(subData.subcategories || []);
-        setProducts(prodData.data || []);
+
+        console.log('Categories:', catData);
+        console.log('SubCategories:', subData);
+        console.log('Products:', prodData);
+        console.log('Wholesalers data:', wholeData);
+
+        setCategories(catData.categories || catData || []);
+        setSubCategories(subData.subcategories || subData || []);
+        setProducts(prodData.data || prodData || []);
+
+        // Handle wholesalers data properly
+        const wholesalersList = wholeData.wholesalers || wholeData.data || wholeData || [];
+        console.log('Processed wholesalers:', wholesalersList);
+        setWholesalers(wholesalersList);
       } catch (err) {
-        console.error(err);
-        showSnackbar("Failed to load data", "error");
+        console.error('Error fetching data:', err);
+        showSnackbar('Failed to load data', 'error');
+      } finally {
+        setLoading(false);
       }
     };
+
     fetchData();
   }, []);
 
-  useEffect(() => {
-    if (editingProduct?.category?._id) {
-      filterSubCategories(editingProduct.category._id);
-    } else if (editingProduct?.category) {
-      filterSubCategories(editingProduct.category);
-    }
-  }, [editingProduct]);
+  // Filter subcategories when category changes
+  const filterSubCategories = useCallback(
+    (categoryId) => {
+      if (!categoryId) {
+        setFilteredSubCategories([]);
+        return;
+      }
+      const filtered = subCategories.filter(
+        (s) => s.category?._id === categoryId || s.category === categoryId
+      );
+      console.log('Filtered subcategories:', filtered);
+      setFilteredSubCategories(filtered);
+    },
+    [subCategories]
+  );
 
-  const filterSubCategories = (categoryId) => {
-    if (!categoryId) return setFilteredSubCategories([]);
-    setFilteredSubCategories(subCategories.filter((s) => s.category?._id === categoryId || s.category === categoryId));
-  };
+  // When editing product, filter subcategories based on its category
+  useEffect(() => {
+    if (editingProduct) {
+      const categoryId = editingProduct.category?._id || editingProduct.category;
+      if (categoryId) {
+        filterSubCategories(categoryId);
+      }
+    }
+  }, [editingProduct, filterSubCategories]);
 
   const calculatePricing = useCallback((originalPrice, discountedMRP, setFieldValue) => {
     if (originalPrice && discountedMRP && discountedMRP <= originalPrice) {
       const discount = (((originalPrice - discountedMRP) / originalPrice) * 100).toFixed(2);
-      setFieldValue("discount", parseFloat(discount));
-      setFieldValue("amountSaving", originalPrice - discountedMRP);
-      setFieldValue("price", discountedMRP);
+      setFieldValue('discount', parseFloat(discount));
+      setFieldValue('amountSaving', originalPrice - discountedMRP);
+      setFieldValue('price', discountedMRP);
     } else {
-      setFieldValue("discount", 0);
-      setFieldValue("amountSaving", 0);
-      setFieldValue("price", originalPrice || 0);
+      setFieldValue('discount', 0);
+      setFieldValue('amountSaving', 0);
+      setFieldValue('price', originalPrice || 0);
     }
   }, []);
 
-  // New function to preview price with customizations
-  const handlePricePreview = async (productId, customizations) => {
-    try {
-      const res = await computePrice(productId, { selectedOptions: selectedCustomizations });
-      setPricePreview(res);
-    } catch (err) {
-      console.error("Price preview failed:", err);
-    }
-  };
-
   const handleEdit = (product) => {
     setEditingProduct(product);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleDelete = (productId) => {
     setDeleteDialog({
       open: true,
       productId,
-      productName: products.find((p) => p._id === productId)?.productName || products.find((p) => p._id === productId)?.name || "this product",
+      productName:
+        products.find((p) => p._id === productId)?.productName ||
+        products.find((p) => p._id === productId)?.name ||
+        'this product',
     });
   };
 
@@ -715,24 +897,22 @@ export default function ProductData() {
     try {
       await deleteProduct(deleteDialog.productId);
       setProducts((prev) => prev.filter((p) => p._id !== deleteDialog.productId));
-      showSnackbar("Product deleted successfully");
-      setDeleteDialog({ open: false, productId: null, productName: "" });
+      showSnackbar('Product deleted successfully');
+      setDeleteDialog({ open: false, productId: null, productName: '' });
     } catch {
-      showSnackbar("Failed to delete product", "error");
+      showSnackbar('Failed to delete product', 'error');
     }
   };
 
-  const handleToggleStatus = async (productId, currentStatus) => {
+  const handleToggleStatus = async (productId) => {
     try {
       const res = await toggleProductStatus(productId);
       setProducts((prev) =>
-        prev.map((p) =>
-          p._id === productId ? { ...p, active: res.active } : p
-        )
+        prev.map((p) => (p._id === productId ? { ...p, active: res.active } : p))
       );
-      showSnackbar(`Product ${res.active ? "activated" : "deactivated"} successfully`);
+      showSnackbar(`Product ${res.active ? 'activated' : 'deactivated'} successfully`);
     } catch (err) {
-      showSnackbar("Failed to toggle status", "error");
+      showSnackbar('Failed to toggle status', 'error');
     }
   };
 
@@ -750,25 +930,25 @@ export default function ProductData() {
         stock: parseInt(values.stock) || 0,
         rating: parseFloat(values.rating) || 0,
         reviews: parseInt(values.reviews) || 0,
+        wholeSalerDefault: parseFloat(values.wholeSalerDefault) || 0,
+        wholeSalerPrice: parseFloat(values.wholeSalerPrice) || 0,
       };
 
       if (editingProduct) {
         const res = await updateProduct(editingProduct._id, submitData);
-        setProducts((prev) =>
-          prev.map((p) => (p._id === editingProduct._id ? res.product : p))
-        );
-        showSnackbar("Product updated successfully");
+        setProducts((prev) => prev.map((p) => (p._id === editingProduct._id ? res.product : p)));
+        showSnackbar('Product updated successfully');
       } else {
         const res = await createProduct(submitData);
         setProducts((prev) => [res.product, ...prev]);
-        showSnackbar("Product added successfully");
+        showSnackbar('Product added successfully');
       }
       resetForm();
       setEditingProduct(null);
       setCurrentPage(1);
     } catch (err) {
       console.error(err);
-      showSnackbar(err.response?.data?.message || "Error saving product", "error");
+      showSnackbar(err.response?.data?.message || 'Error saving product', 'error');
     } finally {
       setSubmitting(false);
       setLoading(false);
@@ -781,16 +961,17 @@ export default function ProductData() {
   const totalPages = Math.ceil(products.length / PRODUCTS_PER_PAGE);
 
   const getInitialValues = () => ({
-    name: editingProduct?.name || "",
-    productName: editingProduct?.productName || "",
-    category: editingProduct?.category?._id || editingProduct?.category || "",
-    subCategory: editingProduct?.subCategory?._id || editingProduct?.subCategory || "",
-    unit: editingProduct?.unit || "",
-    pack: editingProduct?.pack || "",
-    description: editingProduct?.description || "",
+    name: editingProduct?.name || '',
+    productName: editingProduct?.productName || '',
+    category: editingProduct?.category?._id || editingProduct?.category || '',
+    subCategory: editingProduct?.subCategory?._id || editingProduct?.subCategory || '',
+    WholeSaler: editingProduct?.WholeSaler?._id || editingProduct?.WholeSaler || '',
+    unit: editingProduct?.unit || '',
+    pack: editingProduct?.pack || '',
+    description: editingProduct?.description || '',
     stock: editingProduct?.stock || 0,
-    originalPrice: editingProduct?.originalPrice || "",
-    discountedMRP: editingProduct?.discountedMRP || "",
+    originalPrice: editingProduct?.originalPrice || '',
+    discountedMRP: editingProduct?.discountedMRP || '',
     price: editingProduct?.price || 0,
     discount: editingProduct?.discount || 0,
     amountSaving: editingProduct?.amountSaving || 0,
@@ -798,23 +979,34 @@ export default function ProductData() {
     reviews: editingProduct?.reviews || 0,
     popular: editingProduct?.popular || false,
     active: editingProduct?.active ?? true,
-    image: editingProduct?.image || "",
+    image: editingProduct?.image || '',
     images: editingProduct?.images || [],
+    canvasimages: editingProduct?.canvasimages || [],
     media: editingProduct?.media || [],
     customizations: editingProduct?.customizations || [],
     specifications: editingProduct?.specifications || [],
     tags: editingProduct?.tags || [],
     superTags: editingProduct?.superTags || [],
     offers: editingProduct?.offers || [],
+    wholeSalerDefault: editingProduct?.wholeSalerDefault || 0,
+    wholeSalerPrice: editingProduct?.wholeSalerPrice || 0,
     more_details: editingProduct?.more_details || {
-      brand: "",
-      expiry: "",
+      brand: '',
+      expiry: '',
     },
   });
 
+  if (loading && products.length === 0) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
+        <CircularProgress />
+      </Box>
+    );
+  }
+
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
-      <Typography variant="h4" gutterBottom sx={{ mb: 4, fontWeight: "bold" }}>
+      <Typography variant="h4" gutterBottom sx={{ mb: 4, fontWeight: 'bold' }}>
         Product Management
       </Typography>
 
@@ -832,12 +1024,17 @@ export default function ProductData() {
         initialValues={getInitialValues()}
         validate={(values) => {
           const errors = {};
-          if (!values.name) errors.name = "Required";
-          if (!values.category) errors.category = "Required";
-          if (!values.subCategory) errors.subCategory = "Required";
-          if (!values.price && values.price !== 0) errors.price = "Required";
-          if (values.rating < 0 || values.rating > 5) errors.rating = "Rating must be 0–5";
-          if (values.superTags?.length > 5) errors.superTags = "Maximum 5 super tags allowed";
+          if (!values.name) errors.name = 'Required';
+          if (!values.category) errors.category = 'Required';
+          if (!values.subCategory) errors.subCategory = 'Required';
+          if (!values.WholeSaler) errors.WholeSaler = 'Required';
+          if (!values.price && values.price !== 0) errors.price = 'Required';
+          if (values.rating < 0 || values.rating > 5) errors.rating = 'Rating must be 0–5';
+          if (values.superTags?.length > 5) errors.superTags = 'Maximum 5 super tags allowed';
+          if (values.wholeSalerDefault < 0)
+            errors.wholeSalerDefault = 'WholeSaler Default Price cannot be negative';
+          if (values.wholeSalerPrice < 0)
+            errors.wholeSalerPrice = 'WholeSaler Price cannot be negative';
           return errors;
         }}
         onSubmit={handleSubmit}
@@ -849,7 +1046,9 @@ export default function ProductData() {
               <Grid item xs={12} md={6}>
                 {/* Product Info */}
                 <Paper sx={{ p: 3, mb: 3 }}>
-                  <Typography variant="h6" color="black" gutterBottom>Basic Information</Typography>
+                  <Typography variant="h6" color="black" gutterBottom>
+                    Basic Information
+                  </Typography>
                   <Grid container spacing={2}>
                     <Grid item xs={12}>
                       <TextField
@@ -881,13 +1080,19 @@ export default function ProductData() {
                         onChange={(e) => {
                           handleChange(e);
                           filterSubCategories(e.target.value);
-                          setFieldValue("subCategory", "");
+                          setFieldValue('subCategory', '');
                         }}
                         error={touched.category && !!errors.category}
                         helperText={touched.category && errors.category}
                       >
-                        <MenuItem value=""><em>Select Category</em></MenuItem>
-                        {categories.map((c) => <MenuItem key={c._id} value={c._id}>{c.name}</MenuItem>)}
+                        <MenuItem value="">
+                          <em>Select Category</em>
+                        </MenuItem>
+                        {categories.map((c) => (
+                          <MenuItem key={c._id} value={c._id}>
+                            {c.name}
+                          </MenuItem>
+                        ))}
                       </TextField>
                     </Grid>
                     <Grid item xs={6}>
@@ -902,15 +1107,36 @@ export default function ProductData() {
                         error={touched.subCategory && !!errors.subCategory}
                         helperText={touched.subCategory && errors.subCategory}
                       >
-                        <MenuItem value=""><em>Select Sub Category</em></MenuItem>
-                        {filteredSubCategories.map((s) => <MenuItem key={s._id} value={s._id}>{s.name}</MenuItem>)}
+                        <MenuItem value="">
+                          <em>Select Sub Category</em>
+                        </MenuItem>
+                        {filteredSubCategories.map((s) => (
+                          <MenuItem key={s._id} value={s._id}>
+                            {s.name}
+                          </MenuItem>
+                        ))}
                       </TextField>
                     </Grid>
+
                     <Grid item xs={6}>
-                      <TextField name="unit" label="Unit" fullWidth value={values.unit} onChange={handleChange} placeholder="e.g., kg, piece, box" />
+                      <TextField
+                        name="unit"
+                        label="Unit"
+                        fullWidth
+                        value={values.unit}
+                        onChange={handleChange}
+                        placeholder="e.g., kg, piece, box"
+                      />
                     </Grid>
                     <Grid item xs={6}>
-                      <TextField name="pack" label="Pack Size" fullWidth value={values.pack} onChange={handleChange} placeholder="e.g., 500g, 12 pieces" />
+                      <TextField
+                        name="pack"
+                        label="Pack Size"
+                        fullWidth
+                        value={values.pack}
+                        onChange={handleChange}
+                        placeholder="e.g., 500g, 12 pieces"
+                      />
                     </Grid>
                     <Grid item xs={12}>
                       <TextField
@@ -926,7 +1152,11 @@ export default function ProductData() {
 
                     {/* Tags */}
                     <Grid item xs={12}>
-                      <Typography variant="subtitle2" gutterBottom sx={{ color: "#374151", fontWeight: 500 }}>
+                      <Typography
+                        variant="subtitle2"
+                        gutterBottom
+                        sx={{ color: '#374151', fontWeight: 500 }}
+                      >
                         Tags
                       </Typography>
                       <Autocomplete
@@ -935,25 +1165,7 @@ export default function ProductData() {
                         options={[]}
                         value={values.tags || []}
                         onChange={(event, newValue) => {
-                          setFieldValue("tags", newValue);
-                        }}
-                        onKeyDown={(event) => {
-                          if (event.key === ',' && event.target.value) {
-                            event.preventDefault();
-                            const newTag = event.target.value.replace(',', '').trim();
-                            if (newTag && !values.tags.includes(newTag)) {
-                              setFieldValue("tags", [...values.tags, newTag]);
-                              event.target.value = '';
-                            }
-                          }
-                          if (event.key === 'Enter' && event.target.value) {
-                            event.preventDefault();
-                            const newTag = event.target.value.trim();
-                            if (newTag && !values.tags.includes(newTag)) {
-                              setFieldValue("tags", [...values.tags, newTag]);
-                              event.target.value = '';
-                            }
-                          }
+                          setFieldValue('tags', newValue);
                         }}
                         renderTags={(value, getTagProps) =>
                           value.map((option, index) => (
@@ -962,14 +1174,14 @@ export default function ProductData() {
                               label={option}
                               {...getTagProps({ index })}
                               size="small"
-                              sx={{ 
-                                bgcolor: "#fee2e2", 
-                                color: "#dc2626", 
-                                borderColor: "#dc2626",
+                              sx={{
+                                bgcolor: '#fee2e2',
+                                color: '#dc2626',
+                                borderColor: '#dc2626',
                                 '& .MuiChip-deleteIcon': {
-                                  color: "#dc2626",
-                                  '&:hover': { color: "#b91c1c" }
-                                }
+                                  color: '#dc2626',
+                                  '&:hover': { color: '#b91c1c' },
+                                },
                               }}
                             />
                           ))
@@ -979,7 +1191,20 @@ export default function ProductData() {
                             {...params}
                             variant="outlined"
                             placeholder="Type a tag and press Enter"
-                            helperText="Press Enter after each tag to add it. Click ✕ to remove."
+                            helperText="Press Enter or comma to add tags"
+                            onKeyDown={(event) => {
+                              if (event.key === 'Enter' || event.key === ',') {
+                                event.preventDefault();
+                                const inputValue = event.target.value;
+                                if (inputValue && inputValue.trim()) {
+                                  const newTag = inputValue.replace(/,/g, '').trim();
+                                  if (newTag && !values.tags.includes(newTag)) {
+                                    setFieldValue('tags', [...values.tags, newTag]);
+                                    event.target.value = '';
+                                  }
+                                }
+                              }
+                            }}
                           />
                         )}
                       />
@@ -991,7 +1216,7 @@ export default function ProductData() {
                         multiple
                         options={SUPER_TAGS_OPTIONS}
                         value={values.superTags}
-                        onChange={(e, newValue) => setFieldValue("superTags", newValue.slice(0, 5))}
+                        onChange={(e, newValue) => setFieldValue('superTags', newValue.slice(0, 5))}
                         renderInput={(params) => (
                           <TextField
                             {...params}
@@ -1006,13 +1231,25 @@ export default function ProductData() {
                     {/* Flags */}
                     <Grid item xs={6}>
                       <FormControlLabel
-                        control={<Switch checked={values.popular} onChange={(e) => setFieldValue("popular", e.target.checked)} color="error" />}
+                        control={
+                          <Switch
+                            checked={values.popular}
+                            onChange={(e) => setFieldValue('popular', e.target.checked)}
+                            color="error"
+                          />
+                        }
                         label="Popular"
                       />
                     </Grid>
                     <Grid item xs={6}>
                       <FormControlLabel
-                        control={<Switch checked={values.active} onChange={(e) => setFieldValue("active", e.target.checked)} color="success" />}
+                        control={
+                          <Switch
+                            checked={values.active}
+                            onChange={(e) => setFieldValue('active', e.target.checked)}
+                            color="success"
+                          />
+                        }
                         label="Active"
                       />
                     </Grid>
@@ -1021,10 +1258,18 @@ export default function ProductData() {
 
                 {/* Extra Details */}
                 <Paper sx={{ p: 3, mb: 3 }}>
-                  <Typography variant="h6" color="black" gutterBottom>Extra Details</Typography>
+                  <Typography variant="h6" color="black" gutterBottom>
+                    Extra Details
+                  </Typography>
                   <Grid container spacing={2}>
                     <Grid item xs={6}>
-                      <TextField name="more_details.brand" label="Brand" fullWidth value={values.more_details.brand} onChange={handleChange} />
+                      <TextField
+                        name="more_details.brand"
+                        label="Brand"
+                        fullWidth
+                        value={values.more_details.brand}
+                        onChange={handleChange}
+                      />
                     </Grid>
                     <Grid item xs={6}>
                       <TextField
@@ -1047,6 +1292,80 @@ export default function ProductData() {
                         fullWidth
                         value={values.reviews}
                         onChange={handleChange}
+                      />
+                    </Grid>
+                  </Grid>
+                </Paper>
+
+                {/* WholeSaler Information - CORRECTED AND UNCOMMENTED */}
+                <Paper sx={{ p: 3, mb: 3 }}>
+                  <Typography variant="h6" color="black" gutterBottom>
+                    WholeSaler Information
+                  </Typography>
+
+                  {/* Wholesaler Selection */}
+                  <Box sx={{ mb: 3 }}>
+                    <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                      Select Wholesaler
+                    </Typography>
+                    <TextField
+                      select
+                      name="WholeSaler"
+                      label="Select Wholesaler *"
+                      fullWidth
+                      required
+                      value={values.WholeSaler}
+                      onChange={handleChange}
+                      error={touched.WholeSaler && !!errors.WholeSaler}
+                      helperText={touched.WholeSaler && errors.WholeSaler}
+                    >
+                      <MenuItem value="">
+                        <em>Select Wholesaler</em>
+                      </MenuItem>
+                      {wholesalers.length === 0 ? (
+                        <MenuItem disabled>No wholesalers available</MenuItem>
+                      ) : (
+                        wholesalers.map((wholesaler) => (
+                          <MenuItem key={wholesaler._id} value={wholesaler._id}>
+                            {wholesaler.pin} - {wholesaler.storeName} ({wholesaler.city})
+                          </MenuItem>
+                        ))
+                      )}
+                    </TextField>
+                  </Box>
+
+                  <Divider sx={{ my: 2 }} />
+
+                  {/* Wholesaler Pricing */}
+                  <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                    Pricing Details
+                  </Typography>
+                  <Grid container spacing={2}>
+                    <Grid item xs={12} sm={6}>
+                      <TextField
+                        name="wholeSalerDefault"
+                        label="WholeSaler Default Price *"
+                        type="number"
+                        fullWidth
+                        required
+                        value={values.wholeSalerDefault}
+                        onChange={handleChange}
+                        InputProps={{ inputProps: { min: 0, step: 1 } }}
+                        helperText="Base wholesale price"
+                      />
+                    </Grid>
+
+                    <Grid item xs={12} sm={6}>
+                      <TextField
+                        name="wholeSalerPrice"
+                        label="WholeSaler Price *"
+                        type="number"
+                        fullWidth
+                        required
+                        value={values.wholeSalerPrice}
+                        onChange={handleChange}
+                        InputProps={{ inputProps: { min: 0, step: 1 } }}
+                        helperText="Final wholesale price"
                       />
                     </Grid>
                   </Grid>
@@ -1076,9 +1395,17 @@ export default function ProductData() {
               <Grid item xs={12} md={6}>
                 {/* Main Image */}
                 <Paper sx={{ p: 3, mb: 3 }}>
-                  <Typography variant="h6" color="black" gutterBottom>Main Image</Typography>
-                  <Button component="label" variant="outlined" fullWidth sx={redOutlinedButtonStyle} disabled={uploading}>
-                    {uploading ? <CircularProgress size={24} /> : "Upload Main Image"}
+                  <Typography variant="h6" color="black" gutterBottom>
+                    Main Image
+                  </Typography>
+                  <Button
+                    component="label"
+                    variant="outlined"
+                    fullWidth
+                    sx={redOutlinedButtonStyle}
+                    disabled={uploading}
+                  >
+                    {uploading ? <CircularProgress size={24} /> : 'Upload Main Image'}
                     <input
                       type="file"
                       hidden
@@ -1089,44 +1416,54 @@ export default function ProductData() {
                         setUploading(true);
                         try {
                           const formData = new FormData();
-                          formData.append("file", file);
-                          formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
-                          const res = await axios.post(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`, formData);
-                          setFieldValue("image", res.data.secure_url);
-                          showSnackbar("Main image uploaded");
+                          formData.append('file', file);
+                          formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+                          const res = await axios.post(
+                            `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
+                            formData
+                          );
+                          setFieldValue('image', res.data.secure_url);
+                          showSnackbar('Main image uploaded');
                         } catch {
-                          showSnackbar("Upload failed", "error");
+                          showSnackbar('Upload failed', 'error');
                         } finally {
                           setUploading(false);
-                          e.target.value = "";
                         }
                       }}
                     />
                   </Button>
                   {values.image && (
                     <Box mt={2}>
-                      <img src={values.image} alt="Main" style={{ width: "100%", maxHeight: 200, objectFit: "cover", borderRadius: 8 }} />
+                      <img
+                        src={values.image}
+                        alt="Main"
+                        style={{
+                          width: '100%',
+                          maxHeight: 200,
+                          objectFit: 'cover',
+                          borderRadius: 8,
+                        }}
+                      />
                     </Box>
                   )}
                 </Paper>
 
-                {/* Media */}
-                <MediaBuilder
-                  media={values.media}
-                  setFieldValue={setFieldValue}
-                  uploading={uploading}
-                  setUploading={setUploading}
-                  showSnackbar={showSnackbar}
-                />
-
-                {/* Gallery Images */}
+                {/* Canvas Images */}
                 <Paper sx={{ p: 3, mb: 3 }}>
-                  <Typography variant="h6" color="black" gutterBottom>Gallery Images</Typography>
-                  <FieldArray name="images">
+                  <Typography variant="h6" color="black" gutterBottom>
+                    Canvas Images
+                  </Typography>
+                  <FieldArray name="canvasimages">
                     {({ push, remove }) => (
                       <>
-                        <Button component="label" variant="outlined" fullWidth sx={redOutlinedButtonStyle} disabled={uploading}>
-                          {uploading ? <CircularProgress size={24} /> : "Upload Gallery Images"}
+                        <Button
+                          component="label"
+                          variant="outlined"
+                          fullWidth
+                          sx={redOutlinedButtonStyle}
+                          disabled={uploading}
+                        >
+                          {uploading ? <CircularProgress size={24} /> : 'Upload Canvas Images'}
                           <input
                             type="file"
                             hidden
@@ -1140,19 +1477,114 @@ export default function ProductData() {
                                 const urls = await Promise.all(
                                   Array.from(files).map(async (f) => {
                                     const fd = new FormData();
-                                    fd.append("file", f);
-                                    fd.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
-                                    const r = await axios.post(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`, fd);
+                                    fd.append('file', f);
+                                    fd.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+                                    const r = await axios.post(
+                                      `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
+                                      fd
+                                    );
                                     return r.data.secure_url;
                                   })
                                 );
                                 urls.forEach((u) => push(u));
-                                showSnackbar("Gallery images uploaded");
+                                showSnackbar('Canvas images uploaded');
                               } catch {
-                                showSnackbar("Upload failed", "error");
+                                showSnackbar('Upload failed', 'error');
                               } finally {
                                 setUploading(false);
-                                e.target.value = "";
+                              }
+                            }}
+                          />
+                        </Button>
+                        <Grid container spacing={1} sx={{ mt: 1 }}>
+                          {values.canvasimages?.map((img, i) => (
+                            <Grid item xs={4} key={i}>
+                              <Box position="relative">
+                                <img
+                                  src={img}
+                                  alt={`Canvas ${i + 1}`}
+                                  style={{
+                                    width: '100%',
+                                    height: 100,
+                                    borderRadius: 8,
+                                    objectFit: 'cover',
+                                  }}
+                                />
+                                <IconButton
+                                  size="small"
+                                  color="error"
+                                  onClick={() => remove(i)}
+                                  sx={{
+                                    position: 'absolute',
+                                    top: -5,
+                                    right: -5,
+                                    bgcolor: 'white',
+                                  }}
+                                >
+                                  ✕
+                                </IconButton>
+                              </Box>
+                            </Grid>
+                          ))}
+                        </Grid>
+                      </>
+                    )}
+                  </FieldArray>
+                </Paper>
+
+                {/* Media */}
+                <MediaBuilder
+                  media={values.media}
+                  setFieldValue={setFieldValue}
+                  uploading={uploading}
+                  setUploading={setUploading}
+                  showSnackbar={showSnackbar}
+                />
+
+                {/* Gallery Images */}
+                <Paper sx={{ p: 3, mb: 3 }}>
+                  <Typography variant="h6" color="black" gutterBottom>
+                    Gallery Images
+                  </Typography>
+                  <FieldArray name="images">
+                    {({ push, remove }) => (
+                      <>
+                        <Button
+                          component="label"
+                          variant="outlined"
+                          fullWidth
+                          sx={redOutlinedButtonStyle}
+                          disabled={uploading}
+                        >
+                          {uploading ? <CircularProgress size={24} /> : 'Upload Gallery Images'}
+                          <input
+                            type="file"
+                            hidden
+                            multiple
+                            accept="image/*"
+                            onChange={async (e) => {
+                              const files = e.target?.files;
+                              if (!files?.length) return;
+                              setUploading(true);
+                              try {
+                                const urls = await Promise.all(
+                                  Array.from(files).map(async (f) => {
+                                    const fd = new FormData();
+                                    fd.append('file', f);
+                                    fd.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+                                    const r = await axios.post(
+                                      `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
+                                      fd
+                                    );
+                                    return r.data.secure_url;
+                                  })
+                                );
+                                urls.forEach((u) => push(u));
+                                showSnackbar('Gallery images uploaded');
+                              } catch {
+                                showSnackbar('Upload failed', 'error');
+                              } finally {
+                                setUploading(false);
                               }
                             }}
                           />
@@ -1161,9 +1593,29 @@ export default function ProductData() {
                           {values.images.map((img, i) => (
                             <Grid item xs={4} key={i}>
                               <Box position="relative">
-                                <img src={img} alt="" style={{ width: "100%", height: 100, borderRadius: 8, objectFit: "cover" }} />
-                                <IconButton size="small" color="error" onClick={() => remove(i)}
-                                  sx={{ position: "absolute", top: -5, right: -5, bgcolor: "white" }}>✕</IconButton>
+                                <img
+                                  src={img}
+                                  alt=""
+                                  style={{
+                                    width: '100%',
+                                    height: 100,
+                                    borderRadius: 8,
+                                    objectFit: 'cover',
+                                  }}
+                                />
+                                <IconButton
+                                  size="small"
+                                  color="error"
+                                  onClick={() => remove(i)}
+                                  sx={{
+                                    position: 'absolute',
+                                    top: -5,
+                                    right: -5,
+                                    bgcolor: 'white',
+                                  }}
+                                >
+                                  ✕
+                                </IconButton>
                               </Box>
                             </Grid>
                           ))}
@@ -1175,7 +1627,9 @@ export default function ProductData() {
 
                 {/* Pricing & Stock */}
                 <Paper sx={{ p: 3, mb: 3 }}>
-                  <Typography variant="h6" color="black" gutterBottom>Pricing & Stock</Typography>
+                  <Typography variant="h6" color="black" gutterBottom>
+                    Pricing & Stock
+                  </Typography>
                   <Grid container spacing={2}>
                     <Grid item xs={6}>
                       <TextField
@@ -1208,7 +1662,11 @@ export default function ProductData() {
                         value={values.originalPrice}
                         onChange={(e) => {
                           handleChange(e);
-                          calculatePricing(parseFloat(e.target.value) || 0, values.discountedMRP || values.price, setFieldValue);
+                          calculatePricing(
+                            parseFloat(e.target.value) || 0,
+                            values.discountedMRP || values.price,
+                            setFieldValue
+                          );
                         }}
                       />
                     </Grid>
@@ -1221,15 +1679,31 @@ export default function ProductData() {
                         value={values.discountedMRP}
                         onChange={(e) => {
                           handleChange(e);
-                          calculatePricing(values.originalPrice || values.price, parseFloat(e.target.value) || 0, setFieldValue);
+                          calculatePricing(
+                            values.originalPrice || values.price,
+                            parseFloat(e.target.value) || 0,
+                            setFieldValue
+                          );
                         }}
                       />
                     </Grid>
                     <Grid item xs={4}>
-                      <TextField name="discount" label="Discount %" fullWidth value={values.discount} InputProps={{ readOnly: true }} />
+                      <TextField
+                        name="discount"
+                        label="Discount %"
+                        fullWidth
+                        value={values.discount}
+                        InputProps={{ readOnly: true }}
+                      />
                     </Grid>
                     <Grid item xs={8}>
-                      <TextField name="amountSaving" label="Amount Saving" fullWidth value={values.amountSaving} InputProps={{ readOnly: true }} />
+                      <TextField
+                        name="amountSaving"
+                        label="Amount Saving"
+                        fullWidth
+                        value={values.amountSaving}
+                        InputProps={{ readOnly: true }}
+                      />
                     </Grid>
                   </Grid>
                 </Paper>
@@ -1245,10 +1719,18 @@ export default function ProductData() {
                     />
                     <CardContent>
                       <Typography variant="h6">{values.productName || values.name}</Typography>
-                      <Typography variant="body2" color="text.secondary">{values.description?.slice(0, 100)}...</Typography>
-                      <Typography variant="h6" color="error">₹{values.price}</Typography>
-                      {values.popular && <Chip label="Popular" size="small" color="warning" sx={{ mt: 1, mr: 1 }} />}
-                      {values.active && <Chip label="Active" size="small" color="success" sx={{ mt: 1 }} />}
+                      <Typography variant="body2" color="text.secondary">
+                        {values.description?.slice(0, 100)}...
+                      </Typography>
+                      <Typography variant="h6" color="error">
+                        ₹{values.price}
+                      </Typography>
+                      {values.popular && (
+                        <Chip label="Popular" size="small" color="warning" sx={{ mt: 1, mr: 1 }} />
+                      )}
+                      {values.active && (
+                        <Chip label="Active" size="small" color="success" sx={{ mt: 1 }} />
+                      )}
                     </CardContent>
                   </Card>
                 )}
@@ -1264,6 +1746,7 @@ export default function ProductData() {
                   onClick={() => {
                     resetForm();
                     setEditingProduct(null);
+                    setFilteredSubCategories([]);
                   }}
                 >
                   Cancel Edit
@@ -1276,14 +1759,14 @@ export default function ProductData() {
                 size="large"
                 sx={redButtonStyle}
               >
-                {loading ? "Saving..." : editingProduct ? "Update Product" : "Add Product"}
+                {loading ? 'Saving...' : editingProduct ? 'Update Product' : 'Add Product'}
               </Button>
             </Box>
           </Form>
         )}
       </Formik>
 
-      {/* ── Product Table with Status Toggle ── */}
+      {/* ── Product Table ── */}
       <Paper sx={{ mt: 6 }}>
         <TableContainer>
           <Table>
@@ -1293,8 +1776,10 @@ export default function ProductData() {
                 <TableCell>Name</TableCell>
                 <TableCell>Category</TableCell>
                 <TableCell>Sub Category</TableCell>
+                <TableCell>Wholesaler</TableCell>
                 <TableCell>Stock</TableCell>
                 <TableCell>Price</TableCell>
+                <TableCell>Wholesale Price</TableCell>
                 <TableCell>Status</TableCell>
                 <TableCell>Actions</TableCell>
               </TableRow>
@@ -1305,39 +1790,54 @@ export default function ProductData() {
                   <TableRow key={p._id} hover>
                     <TableCell>
                       <img
-                        src={p.image || p.images?.[0] || p.media?.find((m) => m.type === "image")?.url || "https://via.placeholder.com/50"}
+                        src={
+                          p.image ||
+                          p.images?.[0] ||
+                          p.media?.find((m) => m.type === 'image')?.url ||
+                          'https://via.placeholder.com/50'
+                        }
                         alt={p.name}
-                        style={{ width: 50, height: 50, borderRadius: 4, objectFit: "cover" }}
+                        style={{ width: 50, height: 50, borderRadius: 4, objectFit: 'cover' }}
                       />
                     </TableCell>
                     <TableCell>
-                      <Typography variant="body2" fontWeight={600}>{p.productName || p.name}</Typography>
-                      <Typography variant="caption" color="text.secondary">{p.description?.slice(0, 40)}...</Typography>
+                      <Typography variant="body2" fontWeight={600}>
+                        {p.productName || p.name}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {p.description?.slice(0, 40)}...
+                      </Typography>
                     </TableCell>
-                    <TableCell>{p.category?.name || "-"}</TableCell>
-                    <TableCell>{p.subCategory?.name || "-"}</TableCell>
-                    <TableCell>{p.stock ?? "-"}</TableCell>
+                    <TableCell>{p.category?.name || '-'}</TableCell>
+                    <TableCell>{p.subCategory?.name || '-'}</TableCell>
+                    <TableCell>{p.WholeSaler?.pin || p.WholeSaler?.storeName || '-'}</TableCell>
+                    <TableCell>{p.stock ?? '-'}</TableCell>
                     <TableCell>₹{p.price}</TableCell>
+                    <TableCell>₹{p.wholeSalerPrice || p.wholeSalerDefault || '-'}</TableCell>
                     <TableCell>
                       <Box display="flex" flexDirection="column" gap={0.5}>
                         {p.popular && <Chip label="Popular" size="small" color="warning" />}
-                        <Switch 
-                          checked={p.active} 
-                          onChange={() => handleToggleStatus(p._id, p.active)}
+                        <Switch
+                          checked={p.active}
+                          onChange={() => handleToggleStatus(p._id)}
                           color="success"
                           size="small"
                         />
                       </Box>
                     </TableCell>
                     <TableCell>
-                      <IconButton color="primary" onClick={() => handleEdit(p)}><MdEdit /></IconButton>
-                      <IconButton color="error" onClick={() => handleDelete(p._id)}><MdDelete /></IconButton>
+                      <IconButton color="primary" onClick={() => handleEdit(p)}>
+                        <MdEdit />
+                      </IconButton>
+                      <IconButton color="error" onClick={() => handleDelete(p._id)}>
+                        <MdDelete />
+                      </IconButton>
                     </TableCell>
                   </TableRow>
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={8} align="center">
+                  <TableCell colSpan={10} align="center">
                     <Typography color="textSecondary">No products found</Typography>
                   </TableCell>
                 </TableRow>
@@ -1346,13 +1846,25 @@ export default function ProductData() {
           </Table>
         </TableContainer>
 
-        {products.length > 0 && (
+        {products.length > PRODUCTS_PER_PAGE && (
           <Box mt={2} mb={2} display="flex" justifyContent="center" alignItems="center" gap={2}>
-            <Button variant="outlined" disabled={currentPage === 1} onClick={() => setCurrentPage((p) => p - 1)} sx={redOutlinedButtonStyle}>
+            <Button
+              variant="outlined"
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage((p) => p - 1)}
+              sx={redOutlinedButtonStyle}
+            >
               Previous
             </Button>
-            <Typography>Page {currentPage} of {totalPages}</Typography>
-            <Button variant="outlined" disabled={currentPage === totalPages} onClick={() => setCurrentPage((p) => p + 1)} sx={redOutlinedButtonStyle}>
+            <Typography>
+              Page {currentPage} of {totalPages}
+            </Typography>
+            <Button
+              variant="outlined"
+              disabled={currentPage === totalPages}
+              onClick={() => setCurrentPage((p) => p + 1)}
+              sx={redOutlinedButtonStyle}
+            >
               Next
             </Button>
           </Box>
@@ -1360,13 +1872,21 @@ export default function ProductData() {
       </Paper>
 
       {/* Delete Dialog */}
-      <Dialog open={deleteDialog.open} onClose={() => setDeleteDialog({ open: false, productId: null, productName: "" })}>
+      <Dialog
+        open={deleteDialog.open}
+        onClose={() => setDeleteDialog({ open: false, productId: null, productName: '' })}
+      >
         <DialogTitle>Confirm Delete</DialogTitle>
         <DialogContent>
-          <Typography>Are you sure you want to delete "{deleteDialog.productName}"? This cannot be undone.</Typography>
+          <Typography>
+            Are you sure you want to delete "{deleteDialog.productName}"? This cannot be undone.
+          </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeleteDialog({ open: false, productId: null, productName: "" })} sx={redOutlinedButtonStyle}>
+          <Button
+            onClick={() => setDeleteDialog({ open: false, productId: null, productName: '' })}
+            sx={redOutlinedButtonStyle}
+          >
             Cancel
           </Button>
           <Button onClick={confirmDelete} variant="contained" sx={redButtonStyle}>
@@ -1379,9 +1899,12 @@ export default function ProductData() {
         open={snackbar.open}
         autoHideDuration={4000}
         onClose={() => setSnackbar({ ...snackbar, open: false })}
-        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
       >
-        <Alert severity={snackbar.severity} onClose={() => setSnackbar({ ...snackbar, open: false })}>
+        <Alert
+          severity={snackbar.severity}
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+        >
           {snackbar.message}
         </Alert>
       </Snackbar>

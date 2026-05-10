@@ -9,19 +9,22 @@ const getDummyOrders = () => [
     items: [{ name: "Wireless Mouse", quantity: 2, sellingPrice: 599 }, { name: "USB Keyboard", quantity: 1, sellingPrice: 1200 }],
     trackingUpdates: [], adminModified: false,
     payment: { method: "ONLINE", status: "PAID", amount: 1250, currency: "INR" },
+    createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
   },
   {
     _id: "ORD002789012", totalAmount: 3499, status: "SHIPPED",
     items: [{ name: "Noise Cancelling Headphones", quantity: 1, sellingPrice: 3499 }],
-    trackingUpdates: [{ status: "Picked Up", location: "Mumbai Hub" }, { status: "In Transit", location: "Nagpur Depot" }],
+    trackingUpdates: [{ status: "Picked Up", location: "Mumbai Hub", updatedAt: new Date().toISOString() }, { status: "In Transit", location: "Nagpur Depot", updatedAt: new Date().toISOString() }],
     adminModified: true,
     payment: { method: "ONLINE", status: "PENDING", amount: 3499, currency: "INR" },
+    createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
   },
   {
     _id: "ORD003345678", totalAmount: 799, status: "DELIVERED",
     items: [{ name: "Phone Stand", quantity: 1, sellingPrice: 399 }, { name: "USB-C Cable", quantity: 2, sellingPrice: 200 }],
-    trackingUpdates: [{ status: "Delivered", location: "Customer Doorstep" }], adminModified: false,
+    trackingUpdates: [{ status: "Delivered", location: "Customer Doorstep", updatedAt: new Date().toISOString() }], adminModified: false,
     payment: { method: "COD", status: "NOT_INITIATED", amount: 799, currency: "INR" },
+    createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
   },
 ];
 
@@ -268,7 +271,7 @@ export default function OrdersPage() {
     }
   };
 
-  /* REMOVE TRACKING - Client-side only (backend doesn't have explicit delete endpoint) */
+  /* REMOVE TRACKING - Client-side only */
   const handleRemoveTracking = async (index) => {
     if (!selectedOrder.trackingUpdates || selectedOrder.trackingUpdates.length === 0) return;
     
@@ -309,6 +312,58 @@ export default function OrdersPage() {
     width: "100%", border: "1.5px solid #E2EAF4", borderRadius: 8,
     padding: "9px 12px", fontSize: 13, color: "#1E3A5F",
     background: "#F8FAFD", outline: "none", fontFamily: "inherit", transition: "border-color 0.2s",
+  };
+
+  // Helper function to render status select options based on current status
+  const renderStatusOptions = (currentStatus) => {
+    switch(currentStatus) {
+      case "PLACED":
+        return (
+          <>
+            <option value="PLACED">PLACED</option>
+            <option value="CONFIRMED">CONFIRMED</option>
+            <option value="CANCELLED">CANCELLED</option>
+          </>
+        );
+      case "CONFIRMED":
+        return (
+          <>
+            <option value="CONFIRMED">CONFIRMED</option>
+            <option value="SHIPPED">SHIPPED</option>
+            <option value="CANCELLED">CANCELLED</option>
+          </>
+        );
+      case "SHIPPED":
+        return (
+          <>
+            <option value="SHIPPED">SHIPPED</option>
+            <option value="DELIVERED">DELIVERED</option>
+          </>
+        );
+      case "DELIVERED":
+        return (
+          <option value="DELIVERED">DELIVERED</option>
+        );
+      case "CANCELLED":
+        return (
+          <option value="CANCELLED">CANCELLED</option>
+        );
+      default:
+        return (
+          <>
+            <option value="PLACED">PLACED</option>
+            <option value="CONFIRMED">CONFIRMED</option>
+            <option value="SHIPPED">SHIPPED</option>
+            <option value="DELIVERED">DELIVERED</option>
+            <option value="CANCELLED">CANCELLED</option>
+          </>
+        );
+    }
+  };
+
+  // Check if status update is allowed (not final state)
+  const isStatusUpdatable = (status) => {
+    return status !== "CANCELLED" && status !== "DELIVERED";
   };
 
   return (
@@ -363,19 +418,30 @@ export default function OrdersPage() {
           display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12,
           boxShadow: "0 1px 4px rgba(37,99,235,0.05)",
         }}>
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-            {["ALL", "PLACED", "CONFIRMED", "SHIPPED", "DELIVERED", "CANCELLED"].map(s => (
-              <button key={s} onClick={() => setFilterStatus(s)} style={{
-                padding: "6px 14px", borderRadius: 8, fontSize: 12, fontWeight: 700,
-                cursor: "pointer", border: "1.5px solid",
-                borderColor: filterStatus === s ? "#2563EB" : "#E2EAF4",
-                background: filterStatus === s ? "#EFF6FF" : "transparent",
-                color: filterStatus === s ? "#2563EB" : "#94A3B8",
-                transition: "all 0.15s",
-              }}>
-                {s === "ALL" ? `All (${orders.length})` : `${s} (${counts[s] || 0})`}
-              </button>
-            ))}
+          <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+            <span style={{ fontSize: 13, fontWeight: 600, color: "#64748B" }}>Filter by Status:</span>
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              style={{
+                border: "1.5px solid #E2EAF4",
+                borderRadius: 8,
+                padding: "8px 12px",
+                fontSize: 13,
+                fontWeight: 500,
+                background: "#F8FAFD",
+                cursor: "pointer",
+                outline: "none",
+                fontFamily: "inherit",
+              }}
+            >
+              <option value="ALL">ALL ORDERS</option>
+              <option value="PLACED">PLACED</option>
+              <option value="CONFIRMED">CONFIRMED</option>
+              <option value="SHIPPED">SHIPPED</option>
+              <option value="DELIVERED">DELIVERED</option>
+              <option value="CANCELLED">CANCELLED</option>
+            </select>
           </div>
           <input
             value={search} onChange={e => setSearch(e.target.value)}
@@ -454,15 +520,35 @@ export default function OrdersPage() {
                 <div><PaymentBadge payment={row.payment} /></div>
 
                 <div>
-                  <select value={row.status} onChange={e => handleStatusUpdate(row._id, e.target.value)} style={{
-                    border: "1.5px solid #E2EAF4", borderRadius: 8, padding: "6px 10px",
-                    fontSize: 12, fontWeight: 600, color: "#1E3A5F", background: "#F8FAFD",
-                    cursor: "pointer", outline: "none", fontFamily: "inherit",
-                  }}>
-                    {["PLACED", "CONFIRMED", "SHIPPED", "DELIVERED", "CANCELLED"].map(s => (
-                      <option key={s} value={s}>{s}</option>
-                    ))}
-                  </select>
+                  <div>
+                    <select 
+                      value={row.status} 
+                      onChange={(e) => handleStatusUpdate(row._id, e.target.value)}
+                      disabled={!isStatusUpdatable(row.status)}
+                      style={{
+                        border: "1.5px solid #E2EAF4",
+                        borderRadius: 8,
+                        padding: "6px 10px",
+                        fontSize: 12,
+                        fontWeight: 600,
+                        color: !isStatusUpdatable(row.status) ? "#94A3B8" : "#1E3A5F",
+                        background: !isStatusUpdatable(row.status) ? "#F3F4F6" : "#F8FAFD",
+                        cursor: !isStatusUpdatable(row.status) ? "not-allowed" : "pointer",
+                        outline: "none",
+                        fontFamily: "inherit",
+                        width: "160px",
+                        opacity: !isStatusUpdatable(row.status) ? 0.7 : 1,
+                        transition: "all 0.2s ease",
+                      }}
+                    >
+                      {renderStatusOptions(row.status)}
+                    </select>
+                    {!isStatusUpdatable(row.status) && (
+                      <div style={{ fontSize: 10, color: "#94A3B8", marginTop: 4, fontWeight: 600, textAlign: "center" }}>
+                        Final Status Locked
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 <div>

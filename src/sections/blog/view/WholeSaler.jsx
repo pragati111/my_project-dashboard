@@ -21,7 +21,8 @@ import {
   InputAdornment,
 } from "@mui/material";
 
-const API_BASE_URL = "https://my-project-backend-ee4t.onrender.com/api/wholesaler";
+// ✅ FIXED API BASE URL - Added 's' to wholesaler (plural)
+const API_BASE_URL = "https://my-project-backend-ee4t.onrender.com/api/wholesalers";
 
 // 🔥 Wholesaler API
 const wholesalerApi = {
@@ -50,7 +51,22 @@ const wholesalerApi = {
     }
 
     const data = await res.json();
-    return data.data || data;
+    console.log('API Response:', data); // Debug log
+    
+    // Handle different response structures
+    if (data.success && data.wholesalers) {
+      return data.wholesalers;
+    }
+    if (data.wholesalers) {
+      return data.wholesalers;
+    }
+    if (Array.isArray(data)) {
+      return data;
+    }
+    if (data.data && Array.isArray(data.data)) {
+      return data.data;
+    }
+    return [];
   },
 
   // ✅ FIXED UPDATE (USING ADMIN TOKEN)
@@ -140,7 +156,11 @@ export default function WholesalerRegistration() {
     setLoading(true);
     try {
       const data = await wholesalerApi.getAll();
+      console.log('Fetched wholesalers:', data);
       setWholesalers(Array.isArray(data) ? data : []);
+      if (data.length === 0) {
+        console.log('No wholesalers found');
+      }
     } catch (err) {
       console.error("Fetch error:", err);
       showSnackbar(err.message || "Failed to fetch wholesalers", "error");
@@ -184,15 +204,19 @@ export default function WholesalerRegistration() {
     try {
       const res = await wholesalerApi.register(form);
 
-      if (res.token) {
+      if (res.token || res.success) {
         showSnackbar("Wholesaler Registered Successfully!");
         setOpen(false);
         setForm(defaultForm);
         fetchWholesalers();
         
         // Store wholesaler token for wholesaler login (not for admin operations)
-        localStorage.setItem("wholesalerToken", res.token);
-        localStorage.setItem("wholesalerInfo", JSON.stringify(res.wholesaler));
+        if (res.token) {
+          localStorage.setItem("wholesalerToken", res.token);
+        }
+        if (res.wholesaler) {
+          localStorage.setItem("wholesalerInfo", JSON.stringify(res.wholesaler));
+        }
       } else {
         showSnackbar(res.message || "Error registering wholesaler", "error");
       }

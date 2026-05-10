@@ -79,6 +79,32 @@ export const getPopularProducts = async () => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
+// WHOLESALER API ENDPOINTS
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Get all wholesalers for dropdown
+export const getWholesalers = async () => {
+  try {
+    const res = await API.get('/wholesalers');
+    return res.data;
+  } catch (error) {
+    console.error('Error fetching wholesalers:', error);
+    throw error;
+  }
+};
+
+// Get single wholesaler by ID
+export const getWholesalerById = async (id) => {
+  try {
+    const res = await API.get(`/wholesalers/${id}`);
+    return res.data;
+  } catch (error) {
+    console.error('Error fetching wholesaler:', error);
+    throw error;
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 // PRODUCT UTILITIES
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -123,6 +149,8 @@ export default {
   getProductsBySubCategory,
   getProductsBySubCategories,
   getPopularProducts,
+  getWholesalers,
+  getWholesalerById,
   computePrice,
   toggleProductStatus,
   bulkUpdateProductStatus,
