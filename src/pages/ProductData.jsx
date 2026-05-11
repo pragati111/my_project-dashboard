@@ -151,12 +151,11 @@ function MediaBuilder({ media, setFieldValue, uploading, setUploading, showSnack
   );
 }
 
-// ─── Wholesaler Price Manager Component (FIXED) ─────────────────────────────
+// ─── Wholesaler Price Manager Component ─────────────────────────────
 function WholesalerPriceManager({ wholesalerPrices, setFieldValue, wholesalers, mrpPrice }) {
   const [selectedWholesaler, setSelectedWholesaler] = useState('');
   const [newWholesalePrice, setNewWholesalePrice] = useState('');
 
-  // Filter out wholesalers that already have pricing configured
   const availableWholesalers = wholesalers.filter(
     w => !wholesalerPrices.some(wp => wp.wholesalerId === w._id)
   );
@@ -212,7 +211,6 @@ function WholesalerPriceManager({ wholesalerPrices, setFieldValue, wholesalers, 
         Configure wholesale prices for each wholesaler (based on MRP: ₹{mrpPrice || 0})
       </Typography>
 
-      {/* Add New Wholesale Price Form */}
       <Paper variant="outlined" sx={{ p: 2, mb: 3, bgcolor: '#fef3c7', borderColor: '#f59e0b' }}>
         <Typography variant="subtitle2" color="#d97706" gutterBottom>➕ Add Wholesale Price</Typography>
         <Grid container spacing={2}>
@@ -258,7 +256,6 @@ function WholesalerPriceManager({ wholesalerPrices, setFieldValue, wholesalers, 
         </Grid>
       </Paper>
 
-      {/* Existing Wholesaler Prices Table */}
       {wholesalerPrices && wholesalerPrices.length > 0 ? (
         <>
           <Typography variant="subtitle2" color="text.secondary" gutterBottom>
@@ -479,6 +476,35 @@ function OffersBuilder({ offers, setFieldValue, showSnackbar }) {
   );
 }
 
+// ─── Validation Function ─────────────────────────────────────────────────────
+const validateForm = (values) => {
+  const errors = {};
+  
+  if (!values.name || values.name.trim() === '') {
+    errors.name = 'Product name is required';
+  }
+  if (!values.category) {
+    errors.category = 'Category is required';
+  }
+  if (!values.subCategory) {
+    errors.subCategory = 'Sub category is required';
+  }
+  if (!values.price || values.price <= 0) {
+    errors.price = 'Valid price is required';
+  }
+  if (values.rating < 0 || values.rating > 5) {
+    errors.rating = 'Rating must be between 0 and 5';
+  }
+  if (values.superTags?.length > 5) {
+    errors.superTags = 'Maximum 5 super tags allowed';
+  }
+  if (values.wholeSalerDefault < 0) {
+    errors.wholeSalerDefault = 'Price cannot be negative';
+  }
+  
+  return errors;
+};
+
 // ─── Main Component ──────────────────────────────────────────────────────────
 export default function ProductData() {
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
@@ -495,6 +521,37 @@ export default function ProductData() {
   const PRODUCTS_PER_PAGE = 20;
 
   const showSnackbar = (message, severity = 'success') => setSnackbar({ open: true, message, severity });
+
+  // ✅ FIXED: Auto-calculate discount and savings
+  const calculatePricing = useCallback((originalPrice, discountedPrice, setFieldValue) => {
+    const origPrice = parseFloat(originalPrice) || 0;
+    const discPrice = parseFloat(discountedPrice) || 0;
+    
+    if (origPrice > 0 && discPrice > 0 && discPrice <= origPrice) {
+      // Both prices exist and discounted price is valid
+      const discount = ((origPrice - discPrice) / origPrice * 100).toFixed(2);
+      setFieldValue('discount', parseFloat(discount));
+      setFieldValue('amountSaving', origPrice - discPrice);
+      setFieldValue('price', discPrice);
+    } else if (discPrice > 0 && (!originalPrice || originalPrice === '')) {
+      // Only discounted price provided, no original price
+      setFieldValue('price', discPrice);
+      setFieldValue('discount', 0);
+      setFieldValue('amountSaving', 0);
+    } else if (origPrice > 0 && (!discountedPrice || discountedPrice === '')) {
+      // Only original price provided
+      setFieldValue('price', origPrice);
+      setFieldValue('discount', 0);
+      setFieldValue('amountSaving', 0);
+    } else {
+      // No valid prices
+      setFieldValue('discount', 0);
+      setFieldValue('amountSaving', 0);
+      if (!discountedPrice && !originalPrice) {
+        setFieldValue('price', 0);
+      }
+    }
+  }, []);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -548,6 +605,9 @@ export default function ProductData() {
         stock: parseInt(values.stock) || 0,
         price: parseFloat(values.price),
         originalPrice: values.originalPrice ? parseFloat(values.originalPrice) : null,
+        discount: parseFloat(values.discount) || 0,
+        amountSaving: parseFloat(values.amountSaving) || 0,
+        discountedMRP: values.price || 0,
         rating: parseFloat(values.rating) || 0,
         reviews: parseInt(values.reviews) || 0,
         popular: values.popular,
@@ -563,6 +623,7 @@ export default function ProductData() {
         offers: values.offers,
         more_details: values.more_details,
         wholesalerPrices: values.wholesalerPrices || [],
+        wholeSalerDefault: parseFloat(values.wholeSalerDefault) || 0,
       };
 
       console.log('Submitting product data:', submitData);
@@ -599,6 +660,9 @@ export default function ProductData() {
     stock: editingProduct?.stock || 0,
     price: editingProduct?.price || 0,
     originalPrice: editingProduct?.originalPrice || '',
+    discount: editingProduct?.discount || 0,
+    amountSaving: editingProduct?.amountSaving || 0,
+    discountedMRP: editingProduct?.discountedMRP || '',
     rating: editingProduct?.rating || 0,
     reviews: editingProduct?.reviews || 0,
     popular: editingProduct?.popular || false,
@@ -613,6 +677,7 @@ export default function ProductData() {
     superTags: editingProduct?.superTags || [],
     offers: editingProduct?.offers || [],
     wholesalerPrices: editingProduct?.wholesalerPrices || [],
+    wholeSalerDefault: editingProduct?.wholeSalerDefault || 0,
     more_details: editingProduct?.more_details || { brand: '', expiry: '' },
   });
 
@@ -634,6 +699,7 @@ export default function ProductData() {
       <Formik 
         enableReinitialize 
         initialValues={getInitialValues()} 
+        validate={validateForm}
         onSubmit={handleSubmit}
       >
         {({ values, errors, touched, setFieldValue, handleChange, isSubmitting, resetForm }) => (
@@ -645,38 +711,138 @@ export default function ProductData() {
                 <Paper sx={{ p: 3, mb: 3 }}>
                   <Typography variant="h6" color="black" gutterBottom>Basic Information</Typography>
                   <Grid container spacing={2}>
-                    <Grid item xs={12}><TextField name="name" label="Name *" fullWidth value={values.name} onChange={handleChange} error={touched.name && !!errors.name} helperText={touched.name && errors.name} /></Grid>
-                    <Grid item xs={12}><TextField name="productName" label="Display Product Name" fullWidth value={values.productName} onChange={handleChange} /></Grid>
+                    <Grid item xs={12}>
+                      <TextField 
+                        name="name" 
+                        label="Name *" 
+                        fullWidth 
+                        value={values.name} 
+                        onChange={handleChange} 
+                        error={touched.name && !!errors.name} 
+                        helperText={touched.name && errors.name} 
+                      />
+                    </Grid>
+                    <Grid item xs={12}>
+                      <TextField 
+                        name="productName" 
+                        label="Display Product Name" 
+                        fullWidth 
+                        value={values.productName} 
+                        onChange={handleChange} 
+                      />
+                    </Grid>
                     <Grid item xs={6}>
-                      <TextField select name="category" label="Category *" fullWidth value={values.category} onChange={(e) => { handleChange(e); filterSubCategories(e.target.value); setFieldValue('subCategory', ''); }} error={touched.category && !!errors.category}>
+                      <TextField 
+                        select 
+                        name="category" 
+                        label="Category *" 
+                        fullWidth 
+                        value={values.category} 
+                        onChange={(e) => { 
+                          handleChange(e); 
+                          filterSubCategories(e.target.value); 
+                          setFieldValue('subCategory', ''); 
+                        }} 
+                        error={touched.category && !!errors.category}
+                        helperText={touched.category && errors.category}
+                      >
                         <MenuItem value=""><em>Select Category</em></MenuItem>
                         {categories.map(c => <MenuItem key={c._id} value={c._id}>{c.name}</MenuItem>)}
                       </TextField>
                     </Grid>
                     <Grid item xs={6}>
-                      <TextField select name="subCategory" label="Sub Category *" fullWidth value={values.subCategory} disabled={!values.category} onChange={handleChange} error={touched.subCategory && !!errors.subCategory}>
+                      <TextField 
+                        select 
+                        name="subCategory" 
+                        label="Sub Category *" 
+                        fullWidth 
+                        value={values.subCategory} 
+                        disabled={!values.category} 
+                        onChange={handleChange}
+                        error={touched.subCategory && !!errors.subCategory}
+                        helperText={touched.subCategory && errors.subCategory}
+                      >
                         <MenuItem value=""><em>Select Sub Category</em></MenuItem>
                         {filteredSubCategories.map(s => <MenuItem key={s._id} value={s._id}>{s.name}</MenuItem>)}
                       </TextField>
                     </Grid>
-                    <Grid item xs={6}><TextField name="unit" label="Unit" fullWidth value={values.unit} onChange={handleChange} placeholder="e.g., kg, piece, box" /></Grid>
-                    <Grid item xs={6}><TextField name="pack" label="Pack Size" fullWidth value={values.pack} onChange={handleChange} placeholder="e.g., 500g, 12 pieces" /></Grid>
-                    <Grid item xs={12}><TextField name="description" label="Description" fullWidth multiline rows={3} value={values.description} onChange={handleChange} /></Grid>
+                    <Grid item xs={6}>
+                      <TextField name="unit" label="Unit" fullWidth value={values.unit} onChange={handleChange} placeholder="e.g., kg, piece, box" />
+                    </Grid>
+                    <Grid item xs={6}>
+                      <TextField name="pack" label="Pack Size" fullWidth value={values.pack} onChange={handleChange} placeholder="e.g., 500g, 12 pieces" />
+                    </Grid>
+                    <Grid item xs={12}>
+                      <TextField name="description" label="Description" fullWidth multiline rows={3} value={values.description} onChange={handleChange} />
+                    </Grid>
 
                     {/* Tags */}
                     <Grid item xs={12}>
                       <Typography variant="subtitle2" gutterBottom sx={{ color: '#374151', fontWeight: 500 }}>Tags</Typography>
-                      <Autocomplete multiple freeSolo options={[]} value={values.tags || []} onChange={(event, newValue) => setFieldValue('tags', newValue)} renderTags={(value, getTagProps) => value.map((option, index) => <Chip key={index} label={option} {...getTagProps({ index })} size="small" sx={{ bgcolor: '#fee2e2', color: '#dc2626' }} />)} renderInput={(params) => <TextField {...params} variant="outlined" placeholder="Type a tag and press Enter" helperText="Press Enter or comma to add tags" onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ',') { event.preventDefault(); const inputValue = event.target.value; if (inputValue && inputValue.trim()) { const newTag = inputValue.replace(/,/g, '').trim(); if (newTag && !values.tags.includes(newTag)) { setFieldValue('tags', [...values.tags, newTag]); event.target.value = ''; } } } }} />} />
+                      <Autocomplete 
+                        multiple 
+                        freeSolo 
+                        options={[]} 
+                        value={values.tags || []} 
+                        onChange={(event, newValue) => setFieldValue('tags', newValue)} 
+                        renderTags={(value, getTagProps) => value.map((option, index) => (
+                          <Chip key={index} label={option} {...getTagProps({ index })} size="small" sx={{ bgcolor: '#fee2e2', color: '#dc2626' }} />
+                        ))} 
+                        renderInput={(params) => (
+                          <TextField 
+                            {...params} 
+                            variant="outlined" 
+                            placeholder="Type a tag and press Enter" 
+                            helperText="Press Enter or comma to add tags" 
+                            onKeyDown={(event) => { 
+                              if (event.key === 'Enter' || event.key === ',') { 
+                                event.preventDefault(); 
+                                const inputValue = event.target.value; 
+                                if (inputValue && inputValue.trim()) { 
+                                  const newTag = inputValue.replace(/,/g, '').trim(); 
+                                  if (newTag && !values.tags.includes(newTag)) { 
+                                    setFieldValue('tags', [...values.tags, newTag]); 
+                                    event.target.value = ''; 
+                                  } 
+                                } 
+                              } 
+                            }} 
+                          />
+                        )} 
+                      />
                     </Grid>
 
                     {/* Super Tags */}
                     <Grid item xs={12}>
-                      <Autocomplete multiple options={SUPER_TAGS_OPTIONS} value={values.superTags} onChange={(e, newValue) => setFieldValue('superTags', newValue.slice(0, 5))} renderInput={(params) => <TextField {...params} label="Super Tags (max 5)" error={touched.superTags && !!errors.superTags} helperText={touched.superTags && errors.superTags} />} />
+                      <Autocomplete 
+                        multiple 
+                        options={SUPER_TAGS_OPTIONS} 
+                        value={values.superTags} 
+                        onChange={(e, newValue) => setFieldValue('superTags', newValue.slice(0, 5))} 
+                        renderInput={(params) => (
+                          <TextField 
+                            {...params} 
+                            label="Super Tags (max 5)" 
+                            error={touched.superTags && !!errors.superTags} 
+                            helperText={touched.superTags && errors.superTags} 
+                          />
+                        )} 
+                      />
                     </Grid>
 
                     {/* Flags */}
-                    <Grid item xs={6}><FormControlLabel control={<Switch checked={values.popular} onChange={(e) => setFieldValue('popular', e.target.checked)} color="error" />} label="Popular" /></Grid>
-                    <Grid item xs={6}><FormControlLabel control={<Switch checked={values.active} onChange={(e) => setFieldValue('active', e.target.checked)} color="success" />} label="Active" /></Grid>
+                    <Grid item xs={6}>
+                      <FormControlLabel 
+                        control={<Switch checked={values.popular} onChange={(e) => setFieldValue('popular', e.target.checked)} color="error" />} 
+                        label="Popular" 
+                      />
+                    </Grid>
+                    <Grid item xs={6}>
+                      <FormControlLabel 
+                        control={<Switch checked={values.active} onChange={(e) => setFieldValue('active', e.target.checked)} color="success" />} 
+                        label="Active" 
+                      />
+                    </Grid>
                   </Grid>
                 </Paper>
 
@@ -684,9 +850,45 @@ export default function ProductData() {
                 <Paper sx={{ p: 3, mb: 3 }}>
                   <Typography variant="h6" color="black" gutterBottom>Extra Details</Typography>
                   <Grid container spacing={2}>
-                    <Grid item xs={6}><TextField name="more_details.brand" label="Brand" fullWidth value={values.more_details.brand} onChange={handleChange} /></Grid>
-                    <Grid item xs={6}><TextField name="rating" label="Rating (0-5)" type="number" fullWidth inputProps={{ min: 0, max: 5, step: 0.1 }} value={values.rating} onChange={handleChange} error={touched.rating && !!errors.rating} helperText={touched.rating && errors.rating} /></Grid>
-                    <Grid item xs={6}><TextField name="reviews" label="Review Count" type="number" fullWidth value={values.reviews} onChange={handleChange} /></Grid>
+                    <Grid item xs={6}>
+                      <TextField name="more_details.brand" label="Brand" fullWidth value={values.more_details.brand} onChange={handleChange} />
+                    </Grid>
+                    <Grid item xs={6}>
+                      <TextField 
+                        name="rating" 
+                        label="Rating (0-5)" 
+                        type="number" 
+                        fullWidth 
+                        inputProps={{ min: 0, max: 5, step: 0.1 }} 
+                        value={values.rating} 
+                        onChange={handleChange} 
+                        error={touched.rating && !!errors.rating} 
+                        helperText={touched.rating && errors.rating} 
+                      />
+                    </Grid>
+                    <Grid item xs={6}>
+                      <TextField name="reviews" label="Review Count" type="number" fullWidth value={values.reviews} onChange={handleChange} />
+                    </Grid>
+                  </Grid>
+                </Paper>
+
+                {/* WholeSaler Default Price - Independent Field */}
+                <Paper sx={{ p: 3, mb: 3 }}>
+                  <Typography variant="h6" color="black" gutterBottom>Wholesaler Default Settings</Typography>
+                  <Grid container spacing={2}>
+                    <Grid item xs={12}>
+                      <TextField
+                        name="wholeSalerDefault"
+                        label="WholeSaler Default Price"
+                        type="number"
+                        fullWidth
+                        value={values.wholeSalerDefault}
+                        onChange={handleChange}
+                        InputProps={{ inputProps: { min: 0, step: 1 } }}
+                        helperText="This is an independent field with no relation to MRP or wholesale prices"
+                        error={touched.wholeSalerDefault && !!errors.wholeSalerDefault}
+                      />
+                    </Grid>
                   </Grid>
                 </Paper>
 
@@ -811,13 +1013,62 @@ export default function ProductData() {
                   </FieldArray>
                 </Paper>
 
-                {/* Pricing & Stock */}
+                {/* Pricing & Stock with Auto-calculation */}
                 <Paper sx={{ p: 3, mb: 3 }}>
                   <Typography variant="h6" color="black" gutterBottom>Pricing & Stock</Typography>
                   <Grid container spacing={2}>
-                    <Grid item xs={6}><TextField name="stock" label="Stock" type="number" fullWidth value={values.stock} onChange={handleChange} /></Grid>
-                    <Grid item xs={6}><TextField name="price" label="MRP Price *" type="number" fullWidth value={values.price} onChange={handleChange} error={touched.price && !!errors.price} helperText={touched.price && errors.price} /></Grid>
-                    <Grid item xs={12}><TextField name="originalPrice" label="Sale Price (Optional)" type="number" fullWidth value={values.originalPrice} onChange={handleChange} placeholder="For discounted sale price" helperText="Leave empty if no sale" /></Grid>
+                    <Grid item xs={6}>
+                      <TextField name="stock" label="Stock" type="number" fullWidth value={values.stock} onChange={handleChange} />
+                    </Grid>
+                    <Grid item xs={6}>
+                      <TextField 
+                        name="originalPrice" 
+                        label="Original Price" 
+                        type="number" 
+                        fullWidth 
+                        value={values.originalPrice} 
+                        onChange={(e) => { 
+                          handleChange(e); 
+                          calculatePricing(e.target.value, values.price, setFieldValue); 
+                        }} 
+                        placeholder="Original price before discount" 
+                      />
+                    </Grid>
+                    <Grid item xs={6}>
+                      <TextField 
+                        name="price" 
+                        label="MRP / Discounted Price *" 
+                        type="number" 
+                        fullWidth 
+                        value={values.price} 
+                        onChange={(e) => { 
+                          handleChange(e); 
+                          calculatePricing(values.originalPrice, e.target.value, setFieldValue); 
+                        }} 
+                        error={touched.price && !!errors.price} 
+                        helperText={touched.price && errors.price} 
+                      />
+                    </Grid>
+                    <Grid item xs={3}>
+                      <TextField 
+                        name="discount" 
+                        label="Discount %" 
+                        type="number" 
+                        fullWidth 
+                        value={values.discount} 
+                        InputProps={{ readOnly: true }} 
+                      />
+                    </Grid>
+                    <Grid item xs={3}>
+                      <TextField 
+                        name="amountSaving" 
+                        label="You Save (₹)" 
+                        type="number" 
+                        fullWidth 
+                        value={values.amountSaving} 
+                        InputProps={{ readOnly: true }} 
+                      />
+                    </Grid>
                   </Grid>
                 </Paper>
 
@@ -828,8 +1079,15 @@ export default function ProductData() {
                     <CardContent>
                       <Typography variant="h6">{values.productName || values.name}</Typography>
                       <Typography variant="body2" color="text.secondary">{values.description?.slice(0, 100)}...</Typography>
-                      <Typography variant="h6" color="error">MRP: ₹{values.price}</Typography>
-                      {values.originalPrice && <Typography variant="body2" color="success.main">Sale Price: ₹{values.originalPrice}</Typography>}
+                      {values.originalPrice && values.originalPrice > values.price && (
+                        <Typography variant="body2" color="text.secondary" sx={{ textDecoration: 'line-through' }}>
+                          MRP: ₹{values.originalPrice}
+                        </Typography>
+                      )}
+                      <Typography variant="h6" color="error">Sale Price: ₹{values.price}</Typography>
+                      {values.discount > 0 && (
+                        <Chip label={`${values.discount}% OFF`} size="small" color="error" sx={{ mt: 1, mr: 1 }} />
+                      )}
                       {values.popular && <Chip label="Popular" size="small" color="warning" sx={{ mt: 1, mr: 1 }} />}
                       {values.active && <Chip label="Active" size="small" color="success" sx={{ mt: 1 }} />}
                     </CardContent>
@@ -839,8 +1097,29 @@ export default function ProductData() {
             </Grid>
 
             <Box textAlign="center" mt={4} display="flex" justifyContent="center" gap={2}>
-              {editingProduct && <Button type="button" variant="outlined" sx={redOutlinedButtonStyle} onClick={() => { resetForm(); setEditingProduct(null); setFilteredSubCategories([]); }}>Cancel Edit</Button>}
-              <Button type="submit" variant="contained" disabled={isSubmitting || loading} size="large" sx={redButtonStyle}>{loading ? 'Saving...' : editingProduct ? 'Update Product' : 'Add Product'}</Button>
+              {editingProduct && (
+                <Button 
+                  type="button" 
+                  variant="outlined" 
+                  sx={redOutlinedButtonStyle} 
+                  onClick={() => { 
+                    resetForm(); 
+                    setEditingProduct(null); 
+                    setFilteredSubCategories([]); 
+                  }}
+                >
+                  Cancel Edit
+                </Button>
+              )}
+              <Button 
+                type="submit" 
+                variant="contained" 
+                disabled={isSubmitting || loading} 
+                size="large" 
+                sx={redButtonStyle}
+              >
+                {loading ? 'Saving...' : editingProduct ? 'Update Product' : 'Add Product'}
+              </Button>
             </Box>
           </Form>
         )}
@@ -859,6 +1138,7 @@ export default function ProductData() {
                 <TableCell>Wholesalers</TableCell>
                 <TableCell>Stock</TableCell>
                 <TableCell>MRP (₹)</TableCell>
+                <TableCell>Discount %</TableCell>
                 <TableCell>Best Wholesale (₹)</TableCell>
                 <TableCell>Status</TableCell>
                 <TableCell>Actions</TableCell>
@@ -871,7 +1151,13 @@ export default function ProductData() {
                   : null;
                 return (
                   <TableRow key={p._id} hover>
-                    <TableCell><img src={p.image || p.images?.[0] || 'https://via.placeholder.com/50'} alt={p.name} style={{ width: 50, height: 50, borderRadius: 4, objectFit: 'cover' }} /></TableCell>
+                    <TableCell>
+                      <img 
+                        src={p.image || p.images?.[0] || 'https://via.placeholder.com/50'} 
+                        alt={p.name} 
+                        style={{ width: 50, height: 50, borderRadius: 4, objectFit: 'cover' }} 
+                      />
+                    </TableCell>
                     <TableCell>
                       <Typography variant="body2" fontWeight={600}>{p.productName || p.name}</Typography>
                       <Typography variant="caption" color="text.secondary">{p.description?.slice(0, 40)}</Typography>
@@ -885,8 +1171,18 @@ export default function ProductData() {
                     </TableCell>
                     <TableCell>{p.stock ?? '-'}</TableCell>
                     <TableCell>₹{p.price?.toLocaleString()}</TableCell>
+                    <TableCell>
+                      <Chip label={`${p.discount || 0}%`} size="small" color={p.discount > 0 ? "error" : "default"} />
+                    </TableCell>
                     <TableCell>{bestPrice ? `₹${bestPrice.toLocaleString()}` : '-'}</TableCell>
-                    <TableCell><Switch checked={p.active} onChange={() => toggleProductStatus(p._id).then(res => setProducts(prev => prev.map(prod => prod._id === p._id ? { ...prod, active: res.active } : prod)))} color="success" size="small" /></TableCell>
+                    <TableCell>
+                      <Switch 
+                        checked={p.active} 
+                        onChange={() => toggleProductStatus(p._id).then(res => setProducts(prev => prev.map(prod => prod._id === p._id ? { ...prod, active: res.active } : prod)))} 
+                        color="success" 
+                        size="small" 
+                      />
+                    </TableCell>
                     <TableCell>
                       <IconButton color="primary" onClick={() => setEditingProduct(p)}><MdEdit /></IconButton>
                       <IconButton color="error" onClick={() => setDeleteDialog({ open: true, productId: p._id, productName: p.productName || p.name })}><MdDelete /></IconButton>
@@ -906,17 +1202,39 @@ export default function ProductData() {
         )}
       </Paper>
 
+      {/* Delete Dialog */}
       <Dialog open={deleteDialog.open} onClose={() => setDeleteDialog({ open: false, productId: null, productName: '' })}>
         <DialogTitle>Confirm Delete</DialogTitle>
-        <DialogContent><Typography>Are you sure you want to delete "{deleteDialog.productName}"? This cannot be undone.</Typography></DialogContent>
+        <DialogContent>
+          <Typography>Are you sure you want to delete "{deleteDialog.productName}"? This cannot be undone.</Typography>
+        </DialogContent>
         <DialogActions>
           <Button onClick={() => setDeleteDialog({ open: false, productId: null, productName: '' })}>Cancel</Button>
-          <Button onClick={async () => { await deleteProduct(deleteDialog.productId); setProducts(prev => prev.filter(p => p._id !== deleteDialog.productId)); setDeleteDialog({ open: false, productId: null, productName: '' }); showSnackbar('Product deleted successfully'); }} variant="contained" sx={redButtonStyle}>Delete</Button>
+          <Button 
+            onClick={async () => { 
+              await deleteProduct(deleteDialog.productId); 
+              setProducts(prev => prev.filter(p => p._id !== deleteDialog.productId)); 
+              setDeleteDialog({ open: false, productId: null, productName: '' }); 
+              showSnackbar('Product deleted successfully'); 
+            }} 
+            variant="contained" 
+            sx={redButtonStyle}
+          >
+            Delete
+          </Button>
         </DialogActions>
       </Dialog>
 
-      <Snackbar open={snackbar.open} autoHideDuration={4000} onClose={() => setSnackbar({ ...snackbar, open: false })} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}>
-        <Alert severity={snackbar.severity} onClose={() => setSnackbar({ ...snackbar, open: false })}>{snackbar.message}</Alert>
+      {/* Snackbar */}
+      <Snackbar 
+        open={snackbar.open} 
+        autoHideDuration={4000} 
+        onClose={() => setSnackbar({ ...snackbar, open: false })} 
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert severity={snackbar.severity} onClose={() => setSnackbar({ ...snackbar, open: false })}>
+          {snackbar.message}
+        </Alert>
       </Snackbar>
     </Container>
   );

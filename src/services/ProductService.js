@@ -105,6 +105,57 @@ export const getWholesalerById = async (id) => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
+// WHOLESALER PRICE MANAGEMENT (NEW - Optional)
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Get wholesale price for a specific product and wholesaler
+export const getWholesalerPrice = async (productId, wholesalerId) => {
+  try {
+    const res = await API.get(`/product/${productId}/wholesaler/${wholesalerId}/price`);
+    return res.data;
+  } catch (error) {
+    console.error('Error fetching wholesaler price:', error);
+    throw error;
+  }
+};
+
+// Add or update wholesale price for a product
+export const updateWholesalerPrice = async (productId, wholesalerId, wholesalePrice) => {
+  try {
+    const res = await API.put(`/product/${productId}/wholesaler-price`, {
+      wholesalerId,
+      wholesalePrice,
+    });
+    return res.data;
+  } catch (error) {
+    console.error('Error updating wholesaler price:', error);
+    throw error;
+  }
+};
+
+// Remove wholesale price for a product
+export const removeWholesalerPrice = async (productId, wholesalerId) => {
+  try {
+    const res = await API.delete(`/product/${productId}/wholesaler/${wholesalerId}/price`);
+    return res.data;
+  } catch (error) {
+    console.error('Error removing wholesaler price:', error);
+    throw error;
+  }
+};
+
+// Get products by wholesaler (filter products that have pricing for a specific wholesaler)
+export const getProductsByWholesaler = async (wholesalerId) => {
+  try {
+    const res = await API.get(`/product?wholesalerId=${wholesalerId}`);
+    return res.data;
+  } catch (error) {
+    console.error('Error fetching products by wholesaler:', error);
+    throw error;
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 // PRODUCT UTILITIES
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -151,6 +202,10 @@ export default {
   getPopularProducts,
   getWholesalers,
   getWholesalerById,
+  getWholesalerPrice,
+  updateWholesalerPrice,
+  removeWholesalerPrice,
+  getProductsByWholesaler,
   computePrice,
   toggleProductStatus,
   bulkUpdateProductStatus,
