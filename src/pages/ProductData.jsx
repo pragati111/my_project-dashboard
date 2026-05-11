@@ -522,8 +522,8 @@ export default function ProductData() {
 
   const showSnackbar = (message, severity = 'success') => setSnackbar({ open: true, message, severity });
 
-  // ✅ FIXED: Auto-calculate discount and savings
-  const calculatePricing = useCallback((originalPrice, discountedPrice, setFieldValue) => {
+  // Updated calculatePricing function
+  const calculatePricing = useCallback((originalPrice, discountedPrice, setFieldValue, isManualDiscountedPrice = false) => {
     const origPrice = parseFloat(originalPrice) || 0;
     const discPrice = parseFloat(discountedPrice) || 0;
     
@@ -532,22 +532,29 @@ export default function ProductData() {
       const discount = ((origPrice - discPrice) / origPrice * 100).toFixed(2);
       setFieldValue('discount', parseFloat(discount));
       setFieldValue('amountSaving', origPrice - discPrice);
-      setFieldValue('price', discPrice);
+      // Only set price if we're not manually typing in discounted price field
+      if (!isManualDiscountedPrice) {
+        setFieldValue('price', discPrice);
+      }
     } else if (discPrice > 0 && (!originalPrice || originalPrice === '')) {
       // Only discounted price provided, no original price
-      setFieldValue('price', discPrice);
+      if (!isManualDiscountedPrice) {
+        setFieldValue('price', discPrice);
+      }
       setFieldValue('discount', 0);
       setFieldValue('amountSaving', 0);
     } else if (origPrice > 0 && (!discountedPrice || discountedPrice === '')) {
       // Only original price provided
-      setFieldValue('price', origPrice);
+      if (!isManualDiscountedPrice) {
+        setFieldValue('price', origPrice);
+      }
       setFieldValue('discount', 0);
       setFieldValue('amountSaving', 0);
     } else {
       // No valid prices
       setFieldValue('discount', 0);
       setFieldValue('amountSaving', 0);
-      if (!discountedPrice && !originalPrice) {
+      if (!isManualDiscountedPrice && !discountedPrice && !originalPrice) {
         setFieldValue('price', 0);
       }
     }
@@ -1013,7 +1020,7 @@ export default function ProductData() {
                   </FieldArray>
                 </Paper>
 
-                {/* Pricing & Stock with Auto-calculation */}
+                {/* Pricing & Stock with Auto-calculation - FIXED VERSION */}
                 <Paper sx={{ p: 3, mb: 3 }}>
                   <Typography variant="h6" color="black" gutterBottom>Pricing & Stock</Typography>
                   <Grid container spacing={2}>
@@ -1029,7 +1036,7 @@ export default function ProductData() {
                         value={values.originalPrice} 
                         onChange={(e) => { 
                           handleChange(e); 
-                          calculatePricing(e.target.value, values.price, setFieldValue); 
+                          calculatePricing(e.target.value, values.price, setFieldValue, false); 
                         }} 
                         placeholder="Original price before discount" 
                       />
@@ -1042,8 +1049,25 @@ export default function ProductData() {
                         fullWidth 
                         value={values.price} 
                         onChange={(e) => { 
-                          handleChange(e); 
-                          calculatePricing(values.originalPrice, e.target.value, setFieldValue); 
+                          // Directly set the price field without auto-calculation
+                          const newPrice = e.target.value;
+                          setFieldValue('price', newPrice);
+                          // Recalculate discount based on this manual price change
+                          if (values.originalPrice && values.originalPrice > 0 && newPrice > 0) {
+                            const origPrice = parseFloat(values.originalPrice);
+                            const discPrice = parseFloat(newPrice);
+                            if (discPrice <= origPrice) {
+                              const discount = ((origPrice - discPrice) / origPrice * 100).toFixed(2);
+                              setFieldValue('discount', parseFloat(discount));
+                              setFieldValue('amountSaving', origPrice - discPrice);
+                            } else {
+                              setFieldValue('discount', 0);
+                              setFieldValue('amountSaving', 0);
+                            }
+                          } else {
+                            setFieldValue('discount', 0);
+                            setFieldValue('amountSaving', 0);
+                          }
                         }} 
                         error={touched.price && !!errors.price} 
                         helperText={touched.price && errors.price} 
