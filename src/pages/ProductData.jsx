@@ -151,14 +151,13 @@ function MediaBuilder({ media, setFieldValue, uploading, setUploading, showSnack
   );
 }
 
-// ─── Wholesaler Price Manager Component ─────────────────────────────
-// ─── Wholesaler Price Manager Component (UPDATED - No discount/savings) ─────────────────────────────
+// ─── Wholesaler Price Manager Component (No discount/savings) ─────────────────────────────
 function WholesalerPriceManager({ wholesalerPrices, setFieldValue, wholesalers, mrpPrice }) {
   const [selectedWholesaler, setSelectedWholesaler] = useState('');
   const [newWholesalePrice, setNewWholesalePrice] = useState('');
 
   const availableWholesalers = wholesalers.filter(
-    w => !wholesalerPrices.some(wp => wp.wholesalerId === w._id)
+    w => !wholesalerPrices.some(wp => wp.wholesalerId === w._id || wp.wholesalerId?._id === w._id)
   );
 
   const addWholesalerPrice = () => {
@@ -195,9 +194,38 @@ function WholesalerPriceManager({ wholesalerPrices, setFieldValue, wholesalers, 
     setFieldValue('wholesalerPrices', updated);
   };
 
-  const getWholesalerInfo = (id) => {
-    const wholesaler = wholesalers.find(w => w._id === id);
-    return wholesaler || { pin: 'N/A', storeName: 'Unknown', city: 'Unknown', _id: id };
+  const getWholesalerInfo = (wholesalerIdData) => {
+    if (wholesalerIdData && typeof wholesalerIdData === 'object' && wholesalerIdData.storeName) {
+      return {
+        storeName: wholesalerIdData.storeName,
+        pin: wholesalerIdData.pin,
+        city: wholesalerIdData.city,
+        _id: wholesalerIdData._id
+      };
+    }
+    
+    if (wholesalerIdData && typeof wholesalerIdData === 'string') {
+      const found = wholesalers.find(w => w._id === wholesalerIdData);
+      if (found) {
+        return {
+          storeName: found.storeName,
+          pin: found.pin,
+          city: found.city,
+          _id: found._id
+        };
+      }
+    }
+    
+    if (wholesalerIdData && typeof wholesalerIdData === 'object') {
+      return {
+        storeName: wholesalerIdData.storeName || 'Unknown',
+        pin: wholesalerIdData.pin || 'N/A',
+        city: wholesalerIdData.city || 'Unknown',
+        _id: wholesalerIdData._id
+      };
+    }
+    
+    return { storeName: 'Unknown', pin: 'N/A', city: 'Unknown', _id: null };
   };
 
   return (
@@ -276,14 +304,14 @@ function WholesalerPriceManager({ wholesalerPrices, setFieldValue, wholesalers, 
               </TableHead>
               <TableBody>
                 {wholesalerPrices.map((wp, index) => {
-                  const wholesaler = getWholesalerInfo(wp.wholesalerId);
+                  const wholesalerInfo = getWholesalerInfo(wp.wholesalerId);
                   const mrp = mrpPrice || 0;
                   
                   return (
                     <TableRow key={index}>
-                      <TableCell>{wholesaler.storeName}</TableCell>
-                      <TableCell><Chip label={wholesaler.pin} size="small" variant="outlined" /></TableCell>
-                      <TableCell>{wholesaler.city}</TableCell>
+                      <TableCell>{wholesalerInfo.storeName}</TableCell>
+                      <TableCell><Chip label={wholesalerInfo.pin} size="small" variant="outlined" /></TableCell>
+                      <TableCell>{wholesalerInfo.city}</TableCell>
                       <TableCell align="right">₹{mrp.toLocaleString()}</TableCell>
                       <TableCell align="right">
                         <TextField
@@ -509,41 +537,19 @@ export default function ProductData() {
 
   const showSnackbar = (message, severity = 'success') => setSnackbar({ open: true, message, severity });
 
-  // Updated calculatePricing function
-  const calculatePricing = useCallback((originalPrice, discountedPrice, setFieldValue, isManualDiscountedPrice = false) => {
+  // ✅ DISCOUNT CALCULATION FOR MAIN PRODUCT
+  const calculateDiscount = useCallback((originalPrice, sellingPrice, setFieldValue) => {
     const origPrice = parseFloat(originalPrice) || 0;
-    const discPrice = parseFloat(discountedPrice) || 0;
+    const sellPrice = parseFloat(sellingPrice) || 0;
     
-    if (origPrice > 0 && discPrice > 0 && discPrice <= origPrice) {
-      // Both prices exist and discounted price is valid
-      const discount = ((origPrice - discPrice) / origPrice * 100).toFixed(2);
-      setFieldValue('discount', parseFloat(discount));
-      setFieldValue('amountSaving', origPrice - discPrice);
-      // Only set price if we're not manually typing in discounted price field
-      if (!isManualDiscountedPrice) {
-        setFieldValue('price', discPrice);
-      }
-    } else if (discPrice > 0 && (!originalPrice || originalPrice === '')) {
-      // Only discounted price provided, no original price
-      if (!isManualDiscountedPrice) {
-        setFieldValue('price', discPrice);
-      }
-      setFieldValue('discount', 0);
-      setFieldValue('amountSaving', 0);
-    } else if (origPrice > 0 && (!discountedPrice || discountedPrice === '')) {
-      // Only original price provided
-      if (!isManualDiscountedPrice) {
-        setFieldValue('price', origPrice);
-      }
-      setFieldValue('discount', 0);
-      setFieldValue('amountSaving', 0);
+    if (origPrice > 0 && sellPrice > 0 && sellPrice < origPrice) {
+      const discountPercent = ((origPrice - sellPrice) / origPrice * 100).toFixed(2);
+      const youSave = origPrice - sellPrice;
+      setFieldValue('discountPercent', parseFloat(discountPercent));
+      setFieldValue('youSave', youSave);
     } else {
-      // No valid prices
-      setFieldValue('discount', 0);
-      setFieldValue('amountSaving', 0);
-      if (!isManualDiscountedPrice && !discountedPrice && !originalPrice) {
-        setFieldValue('price', 0);
-      }
+      setFieldValue('discountPercent', 0);
+      setFieldValue('youSave', 0);
     }
   }, []);
 
@@ -561,7 +567,6 @@ export default function ProductData() {
         setSubCategories(subData.subcategories || subData || []);
         setProducts(prodData.data || prodData || []);
         setWholesalers(wholeData.wholesalers || wholeData.data || wholeData || []);
-        console.log('Wholesalers loaded:', wholeData);
       } catch (err) {
         console.error(err);
         showSnackbar('Failed to load data', 'error');
@@ -588,6 +593,22 @@ export default function ProductData() {
     setSubmitting(true);
     setLoading(true);
     try {
+      const formattedWholesalerPrices = (values.wholesalerPrices || []).map(wp => ({
+        wholesalerId: wp.wholesalerId?._id || wp.wholesalerId,
+        wholesalePrice: wp.wholesalePrice
+      }));
+
+      // Calculate final values
+      const finalPrice = parseFloat(values.price);
+      const finalOriginalPrice = values.originalPrice ? parseFloat(values.originalPrice) : null;
+      let discountPercent = 0;
+      let youSave = 0;
+      
+      if (finalOriginalPrice && finalPrice && finalPrice < finalOriginalPrice) {
+        discountPercent = ((finalOriginalPrice - finalPrice) / finalOriginalPrice * 100).toFixed(2);
+        youSave = finalOriginalPrice - finalPrice;
+      }
+
       const submitData = {
         name: values.name,
         productName: values.productName,
@@ -597,11 +618,11 @@ export default function ProductData() {
         pack: values.pack,
         description: values.description,
         stock: parseInt(values.stock) || 0,
-        price: parseFloat(values.price),
-        originalPrice: values.originalPrice ? parseFloat(values.originalPrice) : null,
-        discount: parseFloat(values.discount) || 0,
-        amountSaving: parseFloat(values.amountSaving) || 0,
-        discountedMRP: values.price || 0,
+        price: finalPrice,
+        originalPrice: finalOriginalPrice,
+        discount: parseFloat(discountPercent),
+        amountSaving: youSave,
+        discountedMRP: finalPrice,
         rating: parseFloat(values.rating) || 0,
         reviews: parseInt(values.reviews) || 0,
         popular: values.popular,
@@ -616,11 +637,9 @@ export default function ProductData() {
         superTags: values.superTags,
         offers: values.offers,
         more_details: values.more_details,
-        wholesalerPrices: values.wholesalerPrices || [],
+        wholesalerPrices: formattedWholesalerPrices,
         wholeSalerDefault: parseFloat(values.wholeSalerDefault) || 0,
       };
-
-      console.log('Submitting product data:', submitData);
 
       if (editingProduct) {
         const res = await updateProduct(editingProduct._id, submitData);
@@ -654,9 +673,8 @@ export default function ProductData() {
     stock: editingProduct?.stock || 0,
     price: editingProduct?.price || 0,
     originalPrice: editingProduct?.originalPrice || '',
-    discount: editingProduct?.discount || 0,
-    amountSaving: editingProduct?.amountSaving || 0,
-    discountedMRP: editingProduct?.discountedMRP || '',
+    discountPercent: editingProduct?.discount || 0,
+    youSave: editingProduct?.amountSaving || 0,
     rating: editingProduct?.rating || 0,
     reviews: editingProduct?.reviews || 0,
     popular: editingProduct?.popular || false,
@@ -670,7 +688,10 @@ export default function ProductData() {
     tags: editingProduct?.tags || [],
     superTags: editingProduct?.superTags || [],
     offers: editingProduct?.offers || [],
-    wholesalerPrices: editingProduct?.wholesalerPrices || [],
+    wholesalerPrices: (editingProduct?.wholesalerPrices || []).map(wp => ({
+      wholesalerId: wp.wholesalerId?._id || wp.wholesalerId,
+      wholesalePrice: wp.wholesalePrice
+    })),
     wholeSalerDefault: editingProduct?.wholeSalerDefault || 0,
     more_details: editingProduct?.more_details || { brand: '', expiry: '' },
   });
@@ -1007,7 +1028,7 @@ export default function ProductData() {
                   </FieldArray>
                 </Paper>
 
-                {/* Pricing & Stock with Auto-calculation - FIXED VERSION */}
+                {/* Pricing & Stock WITH DISPLAY CALCULATION */}
                 <Paper sx={{ p: 3, mb: 3 }}>
                   <Typography variant="h6" color="black" gutterBottom>Pricing & Stock</Typography>
                   <Grid container spacing={2}>
@@ -1023,38 +1044,21 @@ export default function ProductData() {
                         value={values.originalPrice} 
                         onChange={(e) => { 
                           handleChange(e); 
-                          calculatePricing(e.target.value, values.price, setFieldValue, false); 
+                          calculateDiscount(e.target.value, values.price, setFieldValue);
                         }} 
-                        placeholder="Original price before discount" 
+                        placeholder="Original price (MRP)"
                       />
                     </Grid>
                     <Grid item xs={6}>
                       <TextField 
                         name="price" 
-                        label="MRP / Discounted Price *" 
+                        label="Selling Price" 
                         type="number" 
                         fullWidth 
                         value={values.price} 
                         onChange={(e) => { 
-                          // Directly set the price field without auto-calculation
-                          const newPrice = e.target.value;
-                          setFieldValue('price', newPrice);
-                          // Recalculate discount based on this manual price change
-                          if (values.originalPrice && values.originalPrice > 0 && newPrice > 0) {
-                            const origPrice = parseFloat(values.originalPrice);
-                            const discPrice = parseFloat(newPrice);
-                            if (discPrice <= origPrice) {
-                              const discount = ((origPrice - discPrice) / origPrice * 100).toFixed(2);
-                              setFieldValue('discount', parseFloat(discount));
-                              setFieldValue('amountSaving', origPrice - discPrice);
-                            } else {
-                              setFieldValue('discount', 0);
-                              setFieldValue('amountSaving', 0);
-                            }
-                          } else {
-                            setFieldValue('discount', 0);
-                            setFieldValue('amountSaving', 0);
-                          }
+                          handleChange(e); 
+                          calculateDiscount(values.originalPrice, e.target.value, setFieldValue);
                         }} 
                         error={touched.price && !!errors.price} 
                         helperText={touched.price && errors.price} 
@@ -1062,22 +1066,22 @@ export default function ProductData() {
                     </Grid>
                     <Grid item xs={3}>
                       <TextField 
-                        name="discount" 
+                        name="discountPercent" 
                         label="Discount %" 
                         type="number" 
                         fullWidth 
-                        value={values.discount} 
-                        InputProps={{ readOnly: true }} 
+                        value={values.discountPercent} 
+                        InputProps={{ readOnly: true }}
                       />
                     </Grid>
                     <Grid item xs={3}>
                       <TextField 
-                        name="amountSaving" 
+                        name="youSave" 
                         label="You Save (₹)" 
                         type="number" 
                         fullWidth 
-                        value={values.amountSaving} 
-                        InputProps={{ readOnly: true }} 
+                        value={values.youSave} 
+                        InputProps={{ readOnly: true }}
                       />
                     </Grid>
                   </Grid>
@@ -1095,9 +1099,9 @@ export default function ProductData() {
                           MRP: ₹{values.originalPrice}
                         </Typography>
                       )}
-                      <Typography variant="h6" color="error">Sale Price: ₹{values.price}</Typography>
-                      {values.discount > 0 && (
-                        <Chip label={`${values.discount}% OFF`} size="small" color="error" sx={{ mt: 1, mr: 1 }} />
+                      <Typography variant="h6" color="error">Price: ₹{values.price}</Typography>
+                      {values.discountPercent > 0 && (
+                        <Chip label={`${values.discountPercent}% OFF`} size="small" color="error" sx={{ mt: 1, mr: 1 }} />
                       )}
                       {values.popular && <Chip label="Popular" size="small" color="warning" sx={{ mt: 1, mr: 1 }} />}
                       {values.active && <Chip label="Active" size="small" color="success" sx={{ mt: 1 }} />}
@@ -1148,18 +1152,22 @@ export default function ProductData() {
                 <TableCell>Sub Category</TableCell>
                 <TableCell>Wholesalers</TableCell>
                 <TableCell>Stock</TableCell>
-                <TableCell>MRP (₹)</TableCell>
+                <TableCell>Price (₹)</TableCell>
                 <TableCell>Discount %</TableCell>
-                <TableCell>Best Wholesale (₹)</TableCell>
                 <TableCell>Status</TableCell>
                 <TableCell>Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {products.slice((currentPage - 1) * PRODUCTS_PER_PAGE, currentPage * PRODUCTS_PER_PAGE).map(p => {
-                const bestPrice = p.wholesalerPrices?.length > 0 
-                  ? Math.min(...p.wholesalerPrices.map(wp => wp.wholesalePrice))
-                  : null;
+                let wholesalerDisplay = '-';
+                if (p.wholesalerPrices && p.wholesalerPrices.length > 0) {
+                  const counts = p.wholesalerPrices.length;
+                  wholesalerDisplay = `${counts} wholesaler${counts > 1 ? 's' : ''}`;
+                } else if (p.WholeSaler && p.WholeSaler.storeName) {
+                  wholesalerDisplay = p.WholeSaler.storeName;
+                }
+                
                 return (
                   <TableRow key={p._id} hover>
                     <TableCell>
@@ -1176,8 +1184,8 @@ export default function ProductData() {
                     <TableCell>{p.category?.name || '-'}</TableCell>
                     <TableCell>{p.subCategory?.name || '-'}</TableCell>
                     <TableCell>
-                      <Tooltip title={p.wholesalerPrices?.map(wp => `₹${wp.wholesalePrice}`).join(', ') || 'No wholesalers'}>
-                        <Chip label={`${p.wholesalerPrices?.length || 0} wholesalers`} size="small" color={p.wholesalerPrices?.length > 0 ? "primary" : "default"} />
+                      <Tooltip title={p.wholesalerPrices?.map(wp => `${wp.wholesalerId?.storeName || wp.wholesalerId}: ₹${wp.wholesalePrice}`).join('\n') || 'No wholesalers'}>
+                        <Chip label={wholesalerDisplay} size="small" color={p.wholesalerPrices?.length > 0 ? "primary" : "default"} />
                       </Tooltip>
                     </TableCell>
                     <TableCell>{p.stock ?? '-'}</TableCell>
@@ -1185,7 +1193,6 @@ export default function ProductData() {
                     <TableCell>
                       <Chip label={`${p.discount || 0}%`} size="small" color={p.discount > 0 ? "error" : "default"} />
                     </TableCell>
-                    <TableCell>{bestPrice ? `₹${bestPrice.toLocaleString()}` : '-'}</TableCell>
                     <TableCell>
                       <Switch 
                         checked={p.active} 
