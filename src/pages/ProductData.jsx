@@ -152,6 +152,7 @@ function MediaBuilder({ media, setFieldValue, uploading, setUploading, showSnack
 }
 
 // ─── Wholesaler Price Manager Component ─────────────────────────────
+// ─── Wholesaler Price Manager Component (UPDATED - No discount/savings) ─────────────────────────────
 function WholesalerPriceManager({ wholesalerPrices, setFieldValue, wholesalers, mrpPrice }) {
   const [selectedWholesaler, setSelectedWholesaler] = useState('');
   const [newWholesalePrice, setNewWholesalePrice] = useState('');
@@ -203,7 +204,7 @@ function WholesalerPriceManager({ wholesalerPrices, setFieldValue, wholesalers, 
     <Paper sx={{ p: 3, mb: 3 }}>
       <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
         <Typography variant="h6" color="black">Wholesale Pricing</Typography>
-        <Tooltip title="Set wholesale prices for different wholesalers based on MRP">
+        <Tooltip title="Set wholesale prices for different wholesalers">
           <IconButton size="small"><MdInfo /></IconButton>
         </Tooltip>
       </Stack>
@@ -270,8 +271,6 @@ function WholesalerPriceManager({ wholesalerPrices, setFieldValue, wholesalers, 
                   <TableCell><strong>City</strong></TableCell>
                   <TableCell align="right"><strong>MRP (₹)</strong></TableCell>
                   <TableCell align="right"><strong>Wholesale Price (₹)</strong></TableCell>
-                  <TableCell align="right"><strong>Savings (₹)</strong></TableCell>
-                  <TableCell align="center"><strong>Discount %</strong></TableCell>
                   <TableCell align="center"><strong>Actions</strong></TableCell>
                 </TableRow>
               </TableHead>
@@ -279,8 +278,6 @@ function WholesalerPriceManager({ wholesalerPrices, setFieldValue, wholesalers, 
                 {wholesalerPrices.map((wp, index) => {
                   const wholesaler = getWholesalerInfo(wp.wholesalerId);
                   const mrp = mrpPrice || 0;
-                  const savings = mrp - (wp.wholesalePrice || 0);
-                  const discountPercent = mrp > 0 ? ((savings / mrp) * 100).toFixed(1) : 0;
                   
                   return (
                     <TableRow key={index}>
@@ -296,16 +293,6 @@ function WholesalerPriceManager({ wholesalerPrices, setFieldValue, wholesalers, 
                           size="small"
                           sx={{ width: '110px' }}
                           InputProps={{ inputProps: { min: 0, step: 1 } }}
-                        />
-                      </TableCell>
-                      <TableCell align="right" sx={{ color: savings > 0 ? 'green' : 'red', fontWeight: 'bold' }}>
-                        ₹{savings.toLocaleString()}
-                      </TableCell>
-                      <TableCell align="center">
-                        <Chip 
-                          label={`${discountPercent}%`} 
-                          size="small" 
-                          color={discountPercent > 0 ? "success" : "default"} 
                         />
                       </TableCell>
                       <TableCell align="center">
