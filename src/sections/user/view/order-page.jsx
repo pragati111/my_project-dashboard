@@ -40,6 +40,7 @@ const STATUS_CONFIG = {
   PLACED:    { bg: "#FFF8E1", color: "#F59E0B", border: "#FDE68A", dot: "#F59E0B" },
   CONFIRMED: { bg: "#EFF6FF", color: "#3B82F6", border: "#BFDBFE", dot: "#3B82F6" },
   SHIPPED:   { bg: "#F0F9FF", color: "#0EA5E9", border: "#BAE6FD", dot: "#0EA5E9" },
+  PROCESSING: { bg: "#FEF3C7", color: "#D97706", border: "#FDE68A", dot: "#D97706" },
   DELIVERED: { bg: "#F0FDF4", color: "#22C55E", border: "#BBF7D0", dot: "#22C55E" },
   CANCELLED: { bg: "#FFF1F2", color: "#EF4444", border: "#FECDD3", dot: "#EF4444" },
 };
@@ -322,6 +323,9 @@ export default function OrdersPage() {
           <>
             <option value="PLACED">PLACED</option>
             <option value="CONFIRMED">CONFIRMED</option>
+            <option value="PROCESSING">PROCESSING</option>
+            <option value="SHIPPED">SHIPPED</option>
+            <option value="DELIVERED">DELIVERED</option>
             <option value="CANCELLED">CANCELLED</option>
           </>
         );
@@ -329,7 +333,18 @@ export default function OrdersPage() {
         return (
           <>
             <option value="CONFIRMED">CONFIRMED</option>
+            <option value="PROCESSING">PROCESSING</option>
             <option value="SHIPPED">SHIPPED</option>
+            <option value="DELIVERED">DELIVERED</option>
+            <option value="CANCELLED">CANCELLED</option>
+          </>
+        );
+      case "PROCESSING":
+        return (
+          <>
+            <option value="PROCESSING">PROCESSING</option>
+            <option value="SHIPPED">SHIPPED</option>
+            <option value="DELIVERED">DELIVERED</option>
             <option value="CANCELLED">CANCELLED</option>
           </>
         );
