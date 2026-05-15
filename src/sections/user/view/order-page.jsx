@@ -132,11 +132,16 @@ export default function OrdersPage() {
   const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(true);
   const [lastAutoRefresh, setLastAutoRefresh] = useState(new Date());
   const intervalRef = useRef(null);
-  const ordersRef = useRef(orders); // Add ref to track orders without causing re-renders
+  const ordersRef = useRef(orders);
+  const [cancelledOrderIds, setCancelledOrderIds] = useState(new Set());
 
   // Update ref when orders change
   useEffect(() => {
     ordersRef.current = orders;
+    
+    // Track cancelled orders for highlighting
+    const cancelled = new Set(orders.filter(o => o.status === "CANCELLED").map(o => o._id));
+    setCancelledOrderIds(cancelled);
   }, [orders]);
 
   /* FETCH ORDERS - GET /admin/all */
@@ -152,10 +157,13 @@ export default function OrdersPage() {
         throw new Error("No authentication token");
       }
 
+      console.log("Fetching orders from API at:", new Date().toLocaleTimeString());
       const res = await axios.get(`${API_BASE_URL}/admin/all`, {
         headers: { Authorization: `Bearer ${token}` },
         timeout: 10000,
       });
+
+      console.log("API Response:", res.data);
 
       let ordersData = null;
       if (res.data?.orders && Array.isArray(res.data.orders)) ordersData = res.data.orders;
@@ -163,8 +171,40 @@ export default function OrdersPage() {
       else if (res.data?.data && Array.isArray(res.data.data)) ordersData = res.data.data;
 
       if (ordersData && ordersData.length > 0) {
-        // Check if orders have changed using ref to avoid dependency
-        const ordersChanged = JSON.stringify(ordersData) !== JSON.stringify(ordersRef.current);
+        // Check if orders have changed
+        const previousOrders = ordersRef.current;
+        const ordersChanged = JSON.stringify(ordersData) !== JSON.stringify(previousOrders);
+        
+        // Log status changes for debugging
+        if (ordersChanged && previousOrders.length > 0) {
+          console.log("Orders changed! Previous count:", previousOrders.length, "New count:", ordersData.length);
+          
+          // Check for status changes
+          ordersData.forEach(newOrder => {
+            const oldOrder = previousOrders.find(o => o._id === newOrder._id);
+            if (oldOrder && oldOrder.status !== newOrder.status) {
+              console.log(`🔔 Order ${newOrder._id} status changed from ${oldOrder.status} to ${newOrder.status}`);
+              
+              if (newOrder.status === "CANCELLED") {
+                showToast(`❌ Order #${newOrder._id.slice(-6)} has been CANCELLED!`, false);
+              } else if (oldOrder.status === "CANCELLED" && newOrder.status !== "CANCELLED") {
+                showToast(`✅ Order #${newOrder._id.slice(-6)} status changed from CANCELLED to ${newOrder.status}`, false);
+              }
+            }
+          });
+          
+          // Check for new cancelled orders
+          const newCancelledOrders = ordersData.filter(o => 
+            o.status === "CANCELLED" && !previousOrders.find(po => po._id === o._id && po.status === "CANCELLED")
+          );
+          
+          if (newCancelledOrders.length > 0) {
+            console.log(`⚠️ Found ${newCancelledOrders.length} new cancelled orders!`);
+            newCancelledOrders.forEach(order => {
+              showToast(`⚠️ Order #${order._id.slice(-6)} has been cancelled!`, false);
+            });
+          }
+        }
         
         setOrders(ordersData);
         setUsingDummyData(false);
@@ -175,13 +215,6 @@ export default function OrdersPage() {
           showToast(`No changes detected`);
         } else if (!isAutoRefresh && !showRefreshToast) {
           showToast(`✓ Loaded ${ordersData.length} orders successfully`);
-        } else if (isAutoRefresh && ordersChanged && autoRefreshEnabled) {
-          // Silent auto-refresh - only show toast for important changes
-          const cancelledOrders = ordersData.filter(o => o.status === "CANCELLED").length;
-          const previousCancelled = ordersRef.current.filter(o => o.status === "CANCELLED").length;
-          if (cancelledOrders > previousCancelled) {
-            showToast(`⚠️ ${cancelledOrders - previousCancelled} order(s) were cancelled`, false);
-          }
         }
       } else if (ordersData && ordersData.length === 0) {
         setOrders([]);
@@ -204,7 +237,6 @@ export default function OrdersPage() {
         setUsingDummyData(true);
         showToast("Using demo data (API connection failed)", true);
       } else {
-        // Silent fail for auto-refresh
         console.log("Auto-refresh failed, will retry soon");
       }
     } finally {
@@ -216,7 +248,7 @@ export default function OrdersPage() {
         setLastAutoRefresh(new Date());
       }
     }
-  }, [autoRefreshEnabled]); // Remove orders dependency
+  }, []);
 
   // Initial fetch
   useEffect(() => {
@@ -231,11 +263,11 @@ export default function OrdersPage() {
         clearInterval(intervalRef.current);
       }
       
-      // Set up new interval - refresh every 30 seconds
+      // Set up new interval - refresh every 10 seconds for faster cancellation detection
       intervalRef.current = setInterval(() => {
-        console.log("Auto-refreshing orders...");
+        console.log("Auto-refreshing orders at:", new Date().toLocaleTimeString());
         fetchOrders(false, true);
-      }, 30000); // 30 seconds
+      }, 10000); // 10 seconds
       
       return () => {
         if (intervalRef.current) {
@@ -254,7 +286,7 @@ export default function OrdersPage() {
 
   const showToast = (message, error = false) => {
     setToast({ message, error });
-    setTimeout(() => setToast(null), 2800);
+    setTimeout(() => setToast(null), 5000);
   };
 
   /* UPDATE STATUS - PATCH /admin/:id/status */
@@ -266,21 +298,29 @@ export default function OrdersPage() {
     }
     try {
       const token = getAdminToken();
-      await axios.patch(
+      const response = await axios.patch(
         `${API_BASE_URL}/admin/${id}/status`,
         { status },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      setOrders(prev => prev.map(o => o._id === id ? { ...o, status } : o));
-      if (selectedOrder && selectedOrder._id === id) {
-        setSelectedOrder(prev => ({ ...prev, status }));
-      }
-      showToast(`✓ Status updated to ${status}`);
       
-      // Trigger a refresh after status update to ensure consistency
-      setTimeout(() => {
-        fetchOrders(false, true);
-      }, 500);
+      console.log("Status update response:", response.data);
+      
+      if (response.data.success && response.data.order) {
+        // Update with the exact order from response
+        setOrders(prev => prev.map(o => o._id === id ? response.data.order : o));
+        if (selectedOrder && selectedOrder._id === id) {
+          setSelectedOrder(response.data.order);
+        }
+        showToast(`✓ Status updated to ${status}`);
+        
+        // Trigger a refresh after status update to ensure consistency
+        setTimeout(() => {
+          fetchOrders(false, true);
+        }, 1000);
+      } else {
+        throw new Error("Invalid response from server");
+      }
     } catch (error) {
       console.error("Status update failed:", error);
       showToast(error.response?.data?.message || "Status update failed", true);
@@ -346,7 +386,7 @@ export default function OrdersPage() {
       // Refresh after tracking update
       setTimeout(() => {
         fetchOrders(false, true);
-      }, 500);
+      }, 1000);
     } catch (error) {
       console.error("Failed to add tracking:", error);
       showToast(error.response?.data?.message || "Failed to add tracking update", true);
@@ -477,9 +517,9 @@ export default function OrdersPage() {
               {usingDummyData && <span style={{ marginLeft: 8, color: "#F59E0B", background: "#FFF8E1", border: "1px solid #FDE68A", borderRadius: 4, padding: "1px 6px", fontSize: 10 }}>DEMO MODE</span>}
               {autoRefreshEnabled && !usingDummyData && (
                 <span style={{ marginLeft: 8, color: "#22C55E", background: "#F0FDF4", border: "1px solid #BBF7D0", borderRadius: 4, padding: "1px 6px", fontSize: 10, display: "inline-flex", alignItems: "center", gap: 4 }}>
-                  🔄 Auto-refresh ON
+                  🔄 Auto-refresh (10s)
                   <span style={{ fontSize: 9, opacity: 0.7 }}>
-                    ({new Date(lastAutoRefresh).toLocaleTimeString()})
+                    {new Date(lastAutoRefresh).toLocaleTimeString()}
                   </span>
                 </span>
               )}
@@ -562,7 +602,7 @@ export default function OrdersPage() {
             gap: 8,
           }}>
             <span>🔄</span>
-            <span>Auto-refreshing every 30 seconds to show latest order status (including cancellations)</span>
+            <span>Auto-refreshing every 10 seconds to show latest order status (including cancellations)</span>
             <span style={{ marginLeft: "auto", fontSize: 11, opacity: 0.7 }}>
               Last refresh: {lastAutoRefresh.toLocaleTimeString()}
             </span>
@@ -651,6 +691,7 @@ export default function OrdersPage() {
             const extraCount = row.items.length - 1;
             const orderId = row._id || row.orderId || "";
             const displayId = orderId.length > 6 ? orderId.slice(-6) : orderId;
+            const isCancelled = row.status === "CANCELLED";
 
             return (
               <div key={row._id} style={{
@@ -658,9 +699,10 @@ export default function OrdersPage() {
                 padding: "14px 20px", alignItems: "center",
                 borderBottom: i < filtered.length - 1 ? "1px solid #F1F5FA" : "none",
                 transition: "background 0.15s",
+                backgroundColor: isCancelled ? "#FFF1F2" : "transparent",
               }}
-                onMouseEnter={e => e.currentTarget.style.background = "#F8FAFD"}
-                onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                onMouseEnter={e => e.currentTarget.style.background = isCancelled ? "#FEE2E2" : "#F8FAFD"}
+                onMouseLeave={e => e.currentTarget.style.background = isCancelled ? "#FFF1F2" : "transparent"}
               >
                 <div style={{ fontFamily: "monospace", fontSize: 13, color: "#2563EB", fontWeight: 700 }}>#{displayId}</div>
 
