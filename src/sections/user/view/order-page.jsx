@@ -1,6 +1,6 @@
 /* eslint-disable */
 import axios from "axios";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 
 /* ─── DUMMY DATA ─────────────────────────────────────────── */
 const getDummyOrders = () => [
@@ -128,42 +128,73 @@ export default function OrdersPage() {
   const [trackingLocation, setTrackingLocation] = useState("");
   const [toast, setToast] = useState(null);
   const [updatingTracking, setUpdatingTracking] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(true);
+  const [lastAutoRefresh, setLastAutoRefresh] = useState(new Date());
+  const intervalRef = useRef(null);
+  const ordersRef = useRef(orders); // Add ref to track orders without causing re-renders
+
+  // Update ref when orders change
+  useEffect(() => {
+    ordersRef.current = orders;
+  }, [orders]);
 
   /* FETCH ORDERS - GET /admin/all */
-  useEffect(() => {
-    const fetchOrders = async () => {
-      try {
+  const fetchOrders = useCallback(async (showRefreshToast = false, isAutoRefresh = false) => {
+    try {
+      if (!isAutoRefresh) {
         setLoading(true);
-        const token = getAdminToken();
+      }
+      const token = getAdminToken();
 
-        if (!token) {
-          console.warn("No admin token found in localStorage");
-          throw new Error("No authentication token");
+      if (!token) {
+        console.warn("No admin token found in localStorage");
+        throw new Error("No authentication token");
+      }
+
+      const res = await axios.get(`${API_BASE_URL}/admin/all`, {
+        headers: { Authorization: `Bearer ${token}` },
+        timeout: 10000,
+      });
+
+      let ordersData = null;
+      if (res.data?.orders && Array.isArray(res.data.orders)) ordersData = res.data.orders;
+      else if (Array.isArray(res.data)) ordersData = res.data;
+      else if (res.data?.data && Array.isArray(res.data.data)) ordersData = res.data.data;
+
+      if (ordersData && ordersData.length > 0) {
+        // Check if orders have changed using ref to avoid dependency
+        const ordersChanged = JSON.stringify(ordersData) !== JSON.stringify(ordersRef.current);
+        
+        setOrders(ordersData);
+        setUsingDummyData(false);
+        
+        if (showRefreshToast && ordersChanged) {
+          showToast(`✓ Refreshed ${ordersData.length} orders`);
+        } else if (showRefreshToast && !ordersChanged) {
+          showToast(`No changes detected`);
+        } else if (!isAutoRefresh && !showRefreshToast) {
+          showToast(`✓ Loaded ${ordersData.length} orders successfully`);
+        } else if (isAutoRefresh && ordersChanged && autoRefreshEnabled) {
+          // Silent auto-refresh - only show toast for important changes
+          const cancelledOrders = ordersData.filter(o => o.status === "CANCELLED").length;
+          const previousCancelled = ordersRef.current.filter(o => o.status === "CANCELLED").length;
+          if (cancelledOrders > previousCancelled) {
+            showToast(`⚠️ ${cancelledOrders - previousCancelled} order(s) were cancelled`, false);
+          }
         }
-
-        const res = await axios.get(`${API_BASE_URL}/admin/all`, {
-          headers: { Authorization: `Bearer ${token}` },
-          timeout: 10000,
-        });
-
-        let ordersData = null;
-        if (res.data?.orders && Array.isArray(res.data.orders)) ordersData = res.data.orders;
-        else if (Array.isArray(res.data)) ordersData = res.data;
-        else if (res.data?.data && Array.isArray(res.data.data)) ordersData = res.data.data;
-
-        if (ordersData && ordersData.length > 0) {
-          setOrders(ordersData);
-          setUsingDummyData(false);
-          showToast(`Loaded ${ordersData.length} orders successfully`);
-        } else if (ordersData && ordersData.length === 0) {
-          setOrders([]);
-          setUsingDummyData(false);
+      } else if (ordersData && ordersData.length === 0) {
+        setOrders([]);
+        setUsingDummyData(false);
+        if (!isAutoRefresh) {
           showToast("No orders found");
-        } else {
-          throw new Error("Invalid response structure");
         }
-      } catch (error) {
-        console.error("❌ API Error:", error);
+      } else {
+        throw new Error("Invalid response structure");
+      }
+    } catch (error) {
+      console.error("❌ API Error:", error);
+      if (!isAutoRefresh) {
         if (error.response?.status === 401) showToast("Authentication failed. Please login again.", true);
         else if (error.response?.status === 403) showToast("You don't have permission to view orders.", true);
         else if (error.request) showToast("Network error - Could not connect to server", true);
@@ -172,12 +203,54 @@ export default function OrdersPage() {
         setOrders(getDummyOrders());
         setUsingDummyData(true);
         showToast("Using demo data (API connection failed)", true);
-      } finally {
+      } else {
+        // Silent fail for auto-refresh
+        console.log("Auto-refresh failed, will retry soon");
+      }
+    } finally {
+      if (!isAutoRefresh) {
         setLoading(false);
       }
-    };
+      setRefreshing(false);
+      if (isAutoRefresh) {
+        setLastAutoRefresh(new Date());
+      }
+    }
+  }, [autoRefreshEnabled]); // Remove orders dependency
+
+  // Initial fetch
+  useEffect(() => {
     fetchOrders();
-  }, []);
+  }, [fetchOrders]);
+
+  // Set up auto-refresh polling
+  useEffect(() => {
+    if (autoRefreshEnabled && !usingDummyData) {
+      // Clear existing interval
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+      
+      // Set up new interval - refresh every 30 seconds
+      intervalRef.current = setInterval(() => {
+        console.log("Auto-refreshing orders...");
+        fetchOrders(false, true);
+      }, 30000); // 30 seconds
+      
+      return () => {
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current);
+          intervalRef.current = null;
+        }
+      };
+    } else {
+      // Clear interval when auto-refresh is disabled or using dummy data
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    }
+  }, [autoRefreshEnabled, usingDummyData, fetchOrders]);
 
   const showToast = (message, error = false) => {
     setToast({ message, error });
@@ -202,7 +275,12 @@ export default function OrdersPage() {
       if (selectedOrder && selectedOrder._id === id) {
         setSelectedOrder(prev => ({ ...prev, status }));
       }
-      showToast(`Status updated to ${status}`);
+      showToast(`✓ Status updated to ${status}`);
+      
+      // Trigger a refresh after status update to ensure consistency
+      setTimeout(() => {
+        fetchOrders(false, true);
+      }, 500);
     } catch (error) {
       console.error("Status update failed:", error);
       showToast(error.response?.data?.message || "Status update failed", true);
@@ -263,7 +341,12 @@ export default function OrdersPage() {
       
       setTrackingStatus(""); 
       setTrackingLocation("");
-      showToast("Tracking update added successfully");
+      showToast("✓ Tracking update added successfully");
+      
+      // Refresh after tracking update
+      setTimeout(() => {
+        fetchOrders(false, true);
+      }, 500);
     } catch (error) {
       console.error("Failed to add tracking:", error);
       showToast(error.response?.data?.message || "Failed to add tracking update", true);
@@ -392,15 +475,64 @@ export default function OrdersPage() {
             <div style={{ fontSize: 11, color: "#94A3B8", fontWeight: 600 }}>
               {orders.length} total orders
               {usingDummyData && <span style={{ marginLeft: 8, color: "#F59E0B", background: "#FFF8E1", border: "1px solid #FDE68A", borderRadius: 4, padding: "1px 6px", fontSize: 10 }}>DEMO MODE</span>}
+              {autoRefreshEnabled && !usingDummyData && (
+                <span style={{ marginLeft: 8, color: "#22C55E", background: "#F0FDF4", border: "1px solid #BBF7D0", borderRadius: 4, padding: "1px 6px", fontSize: 10, display: "inline-flex", alignItems: "center", gap: 4 }}>
+                  🔄 Auto-refresh ON
+                  <span style={{ fontSize: 9, opacity: 0.7 }}>
+                    ({new Date(lastAutoRefresh).toLocaleTimeString()})
+                  </span>
+                </span>
+              )}
             </div>
           </div>
         </div>
-        <button style={{
-          background: "linear-gradient(135deg, #2563EB, #3B82F6)", color: "#fff",
-          border: "none", borderRadius: 9, padding: "9px 18px",
-          fontSize: 13, fontWeight: 700, cursor: "pointer",
-          boxShadow: "0 2px 8px rgba(37,99,235,0.3)", display: "flex", alignItems: "center", gap: 6,
-        }}>+ Export Orders</button>
+        <div style={{ display: "flex", gap: 10 }}>
+          <button 
+            onClick={() => setAutoRefreshEnabled(!autoRefreshEnabled)}
+            disabled={usingDummyData}
+            style={{
+              background: autoRefreshEnabled ? "#10B981" : "#6B7280",
+              color: "#fff",
+              border: "none", 
+              borderRadius: 9, 
+              padding: "9px 18px",
+              fontSize: 13, 
+              fontWeight: 700, 
+              cursor: usingDummyData ? "not-allowed" : "pointer",
+              boxShadow: autoRefreshEnabled ? "0 2px 8px rgba(16,185,129,0.3)" : "none",
+              display: "flex", 
+              alignItems: "center", 
+              gap: 6,
+              opacity: usingDummyData ? 0.6 : 1,
+            }}
+          >
+            {autoRefreshEnabled ? "⏸️ Pause Auto-Refresh" : "▶️ Start Auto-Refresh"}
+          </button>
+          <button 
+            onClick={() => {
+              setRefreshing(true);
+              fetchOrders(true, false);
+            }} 
+            disabled={refreshing}
+            style={{
+              background: refreshing ? "#94A3B8" : "linear-gradient(135deg, #2563EB, #3B82F6)", 
+              color: "#fff",
+              border: "none", borderRadius: 9, padding: "9px 18px",
+              fontSize: 13, fontWeight: 700, cursor: refreshing ? "not-allowed" : "pointer",
+              boxShadow: refreshing ? "none" : "0 2px 8px rgba(37,99,235,0.3)", 
+              display: "flex", alignItems: "center", gap: 6,
+              opacity: refreshing ? 0.6 : 1,
+            }}
+          >
+            {refreshing ? "⟳ Refreshing..." : "⟳ Refresh Now"}
+          </button>
+          <button style={{
+            background: "linear-gradient(135deg, #10B981, #34D399)", color: "#fff",
+            border: "none", borderRadius: 9, padding: "9px 18px",
+            fontSize: 13, fontWeight: 700, cursor: "pointer",
+            boxShadow: "0 2px 8px rgba(16,185,129,0.3)", display: "flex", alignItems: "center", gap: 6,
+          }}>+ Export Orders</button>
+        </div>
       </div>
 
       <div style={{ padding: "24px 32px", maxWidth: 1400, margin: "0 auto" }}>
@@ -414,6 +546,28 @@ export default function OrdersPage() {
           <StatCard label="Pending" value={(counts.PLACED || 0) + (counts.CONFIRMED || 0)} icon="⏳" accent="#F59E0B" />
           <StatCard label="Cancelled" value={counts.CANCELLED || 0} icon="❌" accent="#EF4444" />
         </div>
+
+        {/* Auto-refresh info bar */}
+        {autoRefreshEnabled && !usingDummyData && (
+          <div style={{
+            background: "#EFF6FF",
+            border: "1px solid #BFDBFE",
+            borderRadius: 8,
+            padding: "8px 16px",
+            marginBottom: 16,
+            fontSize: 12,
+            color: "#1E40AF",
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+          }}>
+            <span>🔄</span>
+            <span>Auto-refreshing every 30 seconds to show latest order status (including cancellations)</span>
+            <span style={{ marginLeft: "auto", fontSize: 11, opacity: 0.7 }}>
+              Last refresh: {lastAutoRefresh.toLocaleTimeString()}
+            </span>
+          </div>
+        )}
 
         {/* ─── FILTER & SEARCH ─── */}
         <div style={{
