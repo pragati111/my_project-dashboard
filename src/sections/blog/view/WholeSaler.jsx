@@ -122,6 +122,8 @@ const defaultForm = {
   pin: "",
   phoneNumber: "",
   city: "",
+  pincode: "", // ✅ Added pincode
+  state: "",   // ✅ Added state
   address: "",
 };
 
@@ -183,7 +185,9 @@ export default function WholesalerRegistration() {
 
   // 🔥 REGISTER WHOLESALER
   const handleRegister = async () => {
-    if (!form.storeName || !form.email || !form.pin || !form.phoneNumber || !form.city || !form.address) {
+    // ✅ Updated validation to include pincode and state
+    if (!form.storeName || !form.email || !form.pin || !form.phoneNumber || 
+        !form.city || !form.pincode || !form.state || !form.address) {
       return showSnackbar("Please fill all required fields", "error");
     }
 
@@ -195,6 +199,11 @@ export default function WholesalerRegistration() {
       return showSnackbar("Phone number must be 10 digits", "error");
     }
 
+    // ✅ Added pincode validation
+    if (form.pincode.length !== 6) {
+      return showSnackbar("Pincode must be 6 digits", "error");
+    }
+
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(form.email)) {
       return showSnackbar("Please enter a valid email address", "error");
@@ -202,7 +211,17 @@ export default function WholesalerRegistration() {
 
     setLoading(true);
     try {
-      const res = await wholesalerApi.register(form);
+      // ✅ Updated API call to include pincode and state
+      const res = await wholesalerApi.register({
+        storeName: form.storeName,
+        email: form.email,
+        pin: form.pin,
+        phoneNumber: form.phoneNumber,
+        city: form.city,
+        pincode: form.pincode,
+        state: form.state,
+        address: form.address
+      });
 
       if (res.token || res.success) {
         showSnackbar("Wholesaler Registered Successfully!");
@@ -230,12 +249,18 @@ export default function WholesalerRegistration() {
 
   // 🔥 UPDATE WHOLESALER
   const handleUpdate = async () => {
-    if (!editForm.storeName || !editForm.email || !editForm.phoneNumber || !editForm.city || !editForm.address) {
+    // ✅ Updated validation for edit form
+    if (!editForm.storeName || !editForm.email || !editForm.phoneNumber || 
+        !editForm.city || !editForm.pincode || !editForm.state || !editForm.address) {
       return showSnackbar("Please fill all required fields", "error");
     }
 
     if (editForm.phoneNumber.length !== 10) {
       return showSnackbar("Phone number must be 10 digits", "error");
+    }
+
+    if (editForm.pincode && editForm.pincode.length !== 6) {
+      return showSnackbar("Pincode must be 6 digits", "error");
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -303,13 +328,20 @@ export default function WholesalerRegistration() {
   // 🔥 OPEN EDIT DIALOG
   const openEditDialog = (wholesaler) => {
     setEditingId(wholesaler._id);
+    // ✅ Get address from the first address in the array if it exists
+    const defaultAddress = wholesaler.addresses && wholesaler.addresses[0] 
+      ? wholesaler.addresses[0] 
+      : {};
+    
     setEditForm({
       storeName: wholesaler.storeName,
       email: wholesaler.email,
       pin: wholesaler.pin,
       phoneNumber: wholesaler.phoneNumber,
       city: wholesaler.city,
-      address: wholesaler.address,
+      pincode: defaultAddress.pincode || "", // ✅ Get pincode from address
+      state: defaultAddress.state || "",     // ✅ Get state from address
+      address: defaultAddress.addressLine1 || wholesaler.address || "", // Handle both formats
     });
     setOpenEdit(true);
   };
@@ -405,102 +437,129 @@ export default function WholesalerRegistration() {
               </Card>
             </Grid>
           ) : (
-            wholesalers.map((w, index) => (
-              <Grid item xs={12} sm={6} md={4} key={w._id || index}>
-                <Card sx={{ height: "100%", transition: "0.3s", "&:hover": { boxShadow: 6 } }}>
-                  <CardContent>
-                    <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={2}>
-                      <Typography variant="h6" fontWeight="bold" gutterBottom>
-                        {w.storeName}
-                      </Typography>
-                      <Stack direction="row" spacing={1}>
-                        <Chip 
-                          label="Wholesaler" 
-                          color="primary" 
-                          size="small" 
-                        />
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          color="primary"
-                          onClick={() => openEditDialog(w)}
-                          sx={{ minWidth: "35px", p: "4px 8px" }}
-                          disabled={!isAdminAuthenticated}
-                        >
-                          ✏️
-                        </Button>
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          color="error"
-                          onClick={() => handleDelete(w._id, w.storeName)}
-                          sx={{ minWidth: "35px", p: "4px 8px" }}
-                          disabled={!isAdminAuthenticated}
-                        >
-                          🗑️
-                        </Button>
-                      </Stack>
-                    </Stack>
-                    
-                    <Stack spacing={1.5}>
-                      <Box>
-                        <Typography variant="caption" color="textSecondary">
-                          Email
+            wholesalers.map((w, index) => {
+              // ✅ Get address from the first address in the array
+              const defaultAddress = w.addresses && w.addresses[0] ? w.addresses[0] : {};
+              return (
+                <Grid item xs={12} sm={6} md={4} key={w._id || index}>
+                  <Card sx={{ height: "100%", transition: "0.3s", "&:hover": { boxShadow: 6 } }}>
+                    <CardContent>
+                      <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={2}>
+                        <Typography variant="h6" fontWeight="bold" gutterBottom>
+                          {w.storeName}
                         </Typography>
-                        <Typography variant="body2">
-                          {w.email}
-                        </Typography>
-                      </Box>
-                      
-                      <Box>
-                        <Typography variant="caption" color="textSecondary">
-                          Phone Number
-                        </Typography>
-                        <Typography variant="body2">
-                          {w.phoneNumber}
-                        </Typography>
-                      </Box>
-                      
-                      <Box>
-                        <Typography variant="caption" color="textSecondary">
-                          PIN
-                        </Typography>
-                        <Stack direction="row" alignItems="center" spacing={1}>
-                          <Typography variant="body2" fontWeight="bold" fontFamily="monospace">
-                            {showPinInList[w._id] ? w.pin : "••••"}
-                          </Typography>
-                          <IconButton
+                        <Stack direction="row" spacing={1}>
+                          <Chip 
+                            label="Wholesaler" 
+                            color="primary" 
+                            size="small" 
+                          />
+                          <Button
                             size="small"
-                            onClick={() => togglePinVisibilityInList(w._id)}
-                            sx={{ p: 0.5 }}
+                            variant="outlined"
+                            color="primary"
+                            onClick={() => openEditDialog(w)}
+                            sx={{ minWidth: "35px", p: "4px 8px" }}
+                            disabled={!isAdminAuthenticated}
                           >
-                            <span>{showPinInList[w._id] ? "👁️" : "🔒"}</span>
-                          </IconButton>
+                            ✏️
+                          </Button>
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            color="error"
+                            onClick={() => handleDelete(w._id, w.storeName)}
+                            sx={{ minWidth: "35px", p: "4px 8px" }}
+                            disabled={!isAdminAuthenticated}
+                          >
+                            🗑️
+                          </Button>
                         </Stack>
-                      </Box>
+                      </Stack>
                       
-                      <Box>
-                        <Typography variant="caption" color="textSecondary">
-                          City
-                        </Typography>
-                        <Typography variant="body2">
-                          {w.city}
-                        </Typography>
-                      </Box>
-                      
-                      <Box>
-                        <Typography variant="caption" color="textSecondary">
-                          Address
-                        </Typography>
-                        <Typography variant="body2">
-                          {w.address}
-                        </Typography>
-                      </Box>
-                    </Stack>
-                  </CardContent>
-                </Card>
-              </Grid>
-            ))
+                      <Stack spacing={1.5}>
+                        <Box>
+                          <Typography variant="caption" color="textSecondary">
+                            Email
+                          </Typography>
+                          <Typography variant="body2">
+                            {w.email}
+                          </Typography>
+                        </Box>
+                        
+                        <Box>
+                          <Typography variant="caption" color="textSecondary">
+                            Phone Number
+                          </Typography>
+                          <Typography variant="body2">
+                            {w.phoneNumber}
+                          </Typography>
+                        </Box>
+                        
+                        <Box>
+                          <Typography variant="caption" color="textSecondary">
+                            PIN
+                          </Typography>
+                          <Stack direction="row" alignItems="center" spacing={1}>
+                            <Typography variant="body2" fontWeight="bold" fontFamily="monospace">
+                              {showPinInList[w._id] ? w.pin : "••••"}
+                            </Typography>
+                            <IconButton
+                              size="small"
+                              onClick={() => togglePinVisibilityInList(w._id)}
+                              sx={{ p: 0.5 }}
+                            >
+                              <span>{showPinInList[w._id] ? "👁️" : "🔒"}</span>
+                            </IconButton>
+                          </Stack>
+                        </Box>
+                        
+                        <Box>
+                          <Typography variant="caption" color="textSecondary">
+                            City
+                          </Typography>
+                          <Typography variant="body2">
+                            {w.city}
+                          </Typography>
+                        </Box>
+
+                        {/* ✅ Display Pincode and State */}
+                        {defaultAddress.pincode && (
+                          <Box>
+                            <Typography variant="caption" color="textSecondary">
+                              Pincode
+                            </Typography>
+                            <Typography variant="body2">
+                              {defaultAddress.pincode}
+                            </Typography>
+                          </Box>
+                        )}
+
+                        {defaultAddress.state && (
+                          <Box>
+                            <Typography variant="caption" color="textSecondary">
+                              State
+                            </Typography>
+                            <Typography variant="body2">
+                              {defaultAddress.state}
+                            </Typography>
+                          </Box>
+                        )}
+                        
+                        <Box>
+                          <Typography variant="caption" color="textSecondary">
+                            Address
+                          </Typography>
+                          <Typography variant="body2">
+                            {defaultAddress.addressLine1 || w.address}
+                          </Typography>
+                        </Box>
+                      </Stack>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              );
+            })
           )}
         </Grid>
       )}
@@ -585,6 +644,30 @@ export default function WholesalerRegistration() {
               fullWidth
               required
               placeholder="Mumbai, Delhi, Bengaluru"
+            />
+
+            {/* ✅ Added Pincode Field */}
+            <TextField
+              label="Pincode"
+              name="pincode"
+              value={form.pincode}
+              onChange={handleChange}
+              fullWidth
+              required
+              placeholder="400001"
+              helperText="6-digit pincode"
+              inputProps={{ maxLength: 6 }}
+            />
+
+            {/* ✅ Added State Field */}
+            <TextField
+              label="State"
+              name="state"
+              value={form.state}
+              onChange={handleChange}
+              fullWidth
+              required
+              placeholder="Maharashtra"
             />
 
             <TextField
@@ -676,6 +759,27 @@ export default function WholesalerRegistration() {
               label="City"
               name="city"
               value={editForm.city}
+              onChange={handleEditChange}
+              fullWidth
+              required
+            />
+
+            {/* ✅ Added Pincode Field to Edit Dialog */}
+            <TextField
+              label="Pincode"
+              name="pincode"
+              value={editForm.pincode}
+              onChange={handleEditChange}
+              fullWidth
+              required
+              inputProps={{ maxLength: 6 }}
+            />
+
+            {/* ✅ Added State Field to Edit Dialog */}
+            <TextField
+              label="State"
+              name="state"
+              value={editForm.state}
               onChange={handleEditChange}
               fullWidth
               required
