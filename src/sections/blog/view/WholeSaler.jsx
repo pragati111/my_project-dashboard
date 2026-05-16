@@ -21,7 +21,7 @@ import {
   InputAdornment,
 } from "@mui/material";
 
-// ✅ FIXED API BASE URL - Added 's' to wholesaler (plural)
+// ✅ API BASE URL
 const API_BASE_URL = "https://my-project-backend-ee4t.onrender.com/api/wholesalers";
 
 // 🔥 Wholesaler API
@@ -51,9 +51,8 @@ const wholesalerApi = {
     }
 
     const data = await res.json();
-    console.log('API Response:', data); // Debug log
+    console.log('API Response:', data);
     
-    // Handle different response structures
     if (data.success && data.wholesalers) {
       return data.wholesalers;
     }
@@ -69,12 +68,11 @@ const wholesalerApi = {
     return [];
   },
 
-  // ✅ FIXED UPDATE (USING ADMIN TOKEN)
   update: async (id, data) => {
-    // Get admin token from localStorage (not wholesaler token)
     const token = localStorage.getItem("adminToken") || localStorage.getItem("token");
     
     console.log("Update - Token being sent:", token ? "Token exists" : "No token found");
+    console.log("Update data being sent:", JSON.stringify(data, null, 2));
 
     const res = await fetch(`${API_BASE_URL}/${id}`, {
       method: "PUT",
@@ -93,9 +91,7 @@ const wholesalerApi = {
     return res.json();
   },
 
-  // ✅ FIXED DELETE (USING ADMIN TOKEN)
   delete: async (id) => {
-    // Get admin token from localStorage (not wholesaler token)
     const token = localStorage.getItem("adminToken") || localStorage.getItem("token");
     
     console.log("Delete - Token being sent:", token ? "Token exists" : "No token found");
@@ -122,8 +118,8 @@ const defaultForm = {
   pin: "",
   phoneNumber: "",
   city: "",
-  pincode: "", // ✅ Added pincode
-  state: "",   // ✅ Added state
+  pincode: "",
+  state: "",
   address: "",
 };
 
@@ -144,7 +140,6 @@ export default function WholesalerRegistration() {
   const [showPinInList, setShowPinInList] = useState({});
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
 
-  // 🔥 Check if admin is authenticated on component mount
   useEffect(() => {
     const adminToken = localStorage.getItem("adminToken") || localStorage.getItem("token");
     if (adminToken) {
@@ -153,16 +148,12 @@ export default function WholesalerRegistration() {
     fetchWholesalers();
   }, []);
 
-  // 🔥 Fetch Wholesalers
   const fetchWholesalers = async () => {
     setLoading(true);
     try {
       const data = await wholesalerApi.getAll();
       console.log('Fetched wholesalers:', data);
       setWholesalers(Array.isArray(data) ? data : []);
-      if (data.length === 0) {
-        console.log('No wholesalers found');
-      }
     } catch (err) {
       console.error("Fetch error:", err);
       showSnackbar(err.message || "Failed to fetch wholesalers", "error");
@@ -183,9 +174,22 @@ export default function WholesalerRegistration() {
     setEditForm({ ...editForm, [e.target.name]: e.target.value });
   };
 
+  // 🔥 Helper function to format wholesaler data for API
+  const formatWholesalerForAPI = (formData) => {
+    return {
+      storeName: formData.storeName,
+      email: formData.email,
+      pin: formData.pin,
+      phoneNumber: formData.phoneNumber,
+      city: formData.city,
+      pincode: formData.pincode,
+      address: formData.address,  // Will be stored in landmark field
+      state: formData.state,      // Will be stored in addresses array
+    };
+  };
+
   // 🔥 REGISTER WHOLESALER
   const handleRegister = async () => {
-    // ✅ Updated validation to include pincode and state
     if (!form.storeName || !form.email || !form.pin || !form.phoneNumber || 
         !form.city || !form.pincode || !form.state || !form.address) {
       return showSnackbar("Please fill all required fields", "error");
@@ -199,7 +203,6 @@ export default function WholesalerRegistration() {
       return showSnackbar("Phone number must be 10 digits", "error");
     }
 
-    // ✅ Added pincode validation
     if (form.pincode.length !== 6) {
       return showSnackbar("Pincode must be 6 digits", "error");
     }
@@ -211,17 +214,10 @@ export default function WholesalerRegistration() {
 
     setLoading(true);
     try {
-      // ✅ Updated API call to include pincode and state
-      const res = await wholesalerApi.register({
-        storeName: form.storeName,
-        email: form.email,
-        pin: form.pin,
-        phoneNumber: form.phoneNumber,
-        city: form.city,
-        pincode: form.pincode,
-        state: form.state,
-        address: form.address
-      });
+      const formattedData = formatWholesalerForAPI(form);
+      console.log("Registering with data:", formattedData);
+      
+      const res = await wholesalerApi.register(formattedData);
 
       if (res.token || res.success) {
         showSnackbar("Wholesaler Registered Successfully!");
@@ -229,7 +225,6 @@ export default function WholesalerRegistration() {
         setForm(defaultForm);
         fetchWholesalers();
         
-        // Store wholesaler token for wholesaler login (not for admin operations)
         if (res.token) {
           localStorage.setItem("wholesalerToken", res.token);
         }
@@ -249,7 +244,6 @@ export default function WholesalerRegistration() {
 
   // 🔥 UPDATE WHOLESALER
   const handleUpdate = async () => {
-    // ✅ Updated validation for edit form
     if (!editForm.storeName || !editForm.email || !editForm.phoneNumber || 
         !editForm.city || !editForm.pincode || !editForm.state || !editForm.address) {
       return showSnackbar("Please fill all required fields", "error");
@@ -259,7 +253,7 @@ export default function WholesalerRegistration() {
       return showSnackbar("Phone number must be 10 digits", "error");
     }
 
-    if (editForm.pincode && editForm.pincode.length !== 6) {
+    if (editForm.pincode.length !== 6) {
       return showSnackbar("Pincode must be 6 digits", "error");
     }
 
@@ -268,7 +262,6 @@ export default function WholesalerRegistration() {
       return showSnackbar("Please enter a valid email address", "error");
     }
 
-    // Check if admin token exists before attempting update
     const adminToken = localStorage.getItem("adminToken") || localStorage.getItem("token");
     if (!adminToken) {
       showSnackbar("Admin not authenticated. Please login again.", "error");
@@ -277,7 +270,24 @@ export default function WholesalerRegistration() {
 
     setLoading(true);
     try {
-      const res = await wholesalerApi.update(editingId, editForm);
+      // Format data to match backend schema
+      const updateData = {
+        storeName: editForm.storeName,
+        email: editForm.email,
+        phoneNumber: editForm.phoneNumber,
+        city: editForm.city,
+        pincode: editForm.pincode,
+        address: editForm.address,  // Will be stored in landmark field
+        state: editForm.state,      // Will be stored in addresses array
+      };
+      
+      // Only include pin if it was changed
+      if (editForm.pin && editForm.pin !== "••••" && editForm.pin.length >= 4) {
+        updateData.pin = editForm.pin;
+      }
+      
+      console.log("Sending update data:", JSON.stringify(updateData, null, 2));
+      const res = await wholesalerApi.update(editingId, updateData);
       
       if (res.success) {
         showSnackbar("Wholesaler Updated Successfully!");
@@ -299,7 +309,6 @@ export default function WholesalerRegistration() {
   // 🔥 DELETE WHOLESALER
   const handleDelete = async (id, storeName) => {
     if (window.confirm(`Are you sure you want to delete "${storeName}"?`)) {
-      // Check if admin token exists before attempting delete
       const adminToken = localStorage.getItem("adminToken") || localStorage.getItem("token");
       if (!adminToken) {
         showSnackbar("Admin not authenticated. Please login again.", "error");
@@ -325,23 +334,34 @@ export default function WholesalerRegistration() {
     }
   };
 
-  // 🔥 OPEN EDIT DIALOG
+  // 🔥 OPEN EDIT DIALOG - Reads from correct locations
   const openEditDialog = (wholesaler) => {
     setEditingId(wholesaler._id);
-    // ✅ Get address from the first address in the array if it exists
+    
+    // Get address from the response (backend adds 'address' field)
+    const mainAddress = wholesaler.address || "";
+    
+    // Get state from addresses array if it exists
     const defaultAddress = wholesaler.addresses && wholesaler.addresses[0] 
       ? wholesaler.addresses[0] 
       : {};
     
-    setEditForm({
+    console.log("Opening edit dialog with wholesaler:", {
       storeName: wholesaler.storeName,
-      email: wholesaler.email,
-      pin: wholesaler.pin,
-      phoneNumber: wholesaler.phoneNumber,
-      city: wholesaler.city,
-      pincode: defaultAddress.pincode || "", // ✅ Get pincode from address
-      state: defaultAddress.state || "",     // ✅ Get state from address
-      address: defaultAddress.addressLine1 || wholesaler.address || "", // Handle both formats
+      address: wholesaler.address,
+      pincode: wholesaler.pincode,
+      state: defaultAddress.state,
+    });
+    
+    setEditForm({
+      storeName: wholesaler.storeName || "",
+      email: wholesaler.email || "",
+      pin: wholesaler.pin || "••••",
+      phoneNumber: wholesaler.phoneNumber || "",
+      city: wholesaler.city || "",
+      pincode: wholesaler.pincode || "",
+      state: defaultAddress.state || "",
+      address: mainAddress,
     });
     setOpenEdit(true);
   };
@@ -357,7 +377,6 @@ export default function WholesalerRegistration() {
     }));
   };
 
-  // Optional: Add admin logout button
   const handleAdminLogout = () => {
     localStorage.removeItem("adminToken");
     localStorage.removeItem("token");
@@ -367,7 +386,6 @@ export default function WholesalerRegistration() {
 
   return (
     <Container maxWidth="lg">
-      {/* HEADER with Admin Status */}
       <Stack direction="row" justifyContent="space-between" alignItems="center" mb={4} flexWrap="wrap" gap={2}>
         <Box>
           <Typography variant="h4" gutterBottom fontWeight="bold">
@@ -438,7 +456,6 @@ export default function WholesalerRegistration() {
             </Grid>
           ) : (
             wholesalers.map((w, index) => {
-              // ✅ Get address from the first address in the array
               const defaultAddress = w.addresses && w.addresses[0] ? w.addresses[0] : {};
               return (
                 <Grid item xs={12} sm={6} md={4} key={w._id || index}>
@@ -449,11 +466,7 @@ export default function WholesalerRegistration() {
                           {w.storeName}
                         </Typography>
                         <Stack direction="row" spacing={1}>
-                          <Chip 
-                            label="Wholesaler" 
-                            color="primary" 
-                            size="small" 
-                          />
+                          <Chip label="Wholesaler" color="primary" size="small" />
                           <Button
                             size="small"
                             variant="outlined"
@@ -479,80 +492,47 @@ export default function WholesalerRegistration() {
                       
                       <Stack spacing={1.5}>
                         <Box>
-                          <Typography variant="caption" color="textSecondary">
-                            Email
-                          </Typography>
-                          <Typography variant="body2">
-                            {w.email}
-                          </Typography>
+                          <Typography variant="caption" color="textSecondary">Email</Typography>
+                          <Typography variant="body2">{w.email}</Typography>
                         </Box>
                         
                         <Box>
-                          <Typography variant="caption" color="textSecondary">
-                            Phone Number
-                          </Typography>
-                          <Typography variant="body2">
-                            {w.phoneNumber}
-                          </Typography>
+                          <Typography variant="caption" color="textSecondary">Phone Number</Typography>
+                          <Typography variant="body2">{w.phoneNumber}</Typography>
                         </Box>
                         
                         <Box>
-                          <Typography variant="caption" color="textSecondary">
-                            PIN
-                          </Typography>
+                          <Typography variant="caption" color="textSecondary">PIN</Typography>
                           <Stack direction="row" alignItems="center" spacing={1}>
                             <Typography variant="body2" fontWeight="bold" fontFamily="monospace">
                               {showPinInList[w._id] ? w.pin : "••••"}
                             </Typography>
-                            <IconButton
-                              size="small"
-                              onClick={() => togglePinVisibilityInList(w._id)}
-                              sx={{ p: 0.5 }}
-                            >
+                            <IconButton size="small" onClick={() => togglePinVisibilityInList(w._id)} sx={{ p: 0.5 }}>
                               <span>{showPinInList[w._id] ? "👁️" : "🔒"}</span>
                             </IconButton>
                           </Stack>
                         </Box>
                         
                         <Box>
-                          <Typography variant="caption" color="textSecondary">
-                            City
-                          </Typography>
-                          <Typography variant="body2">
-                            {w.city}
-                          </Typography>
+                          <Typography variant="caption" color="textSecondary">City</Typography>
+                          <Typography variant="body2">{w.city}</Typography>
                         </Box>
 
-                        {/* ✅ Display Pincode and State */}
-                        {defaultAddress.pincode && (
-                          <Box>
-                            <Typography variant="caption" color="textSecondary">
-                              Pincode
-                            </Typography>
-                            <Typography variant="body2">
-                              {defaultAddress.pincode}
-                            </Typography>
-                          </Box>
-                        )}
+                        <Box>
+                          <Typography variant="caption" color="textSecondary">Pincode</Typography>
+                          <Typography variant="body2">{w.pincode}</Typography>
+                        </Box>
 
                         {defaultAddress.state && (
                           <Box>
-                            <Typography variant="caption" color="textSecondary">
-                              State
-                            </Typography>
-                            <Typography variant="body2">
-                              {defaultAddress.state}
-                            </Typography>
+                            <Typography variant="caption" color="textSecondary">State</Typography>
+                            <Typography variant="body2">{defaultAddress.state}</Typography>
                           </Box>
                         )}
                         
                         <Box>
-                          <Typography variant="caption" color="textSecondary">
-                            Address
-                          </Typography>
-                          <Typography variant="body2">
-                            {defaultAddress.addressLine1 || w.address}
-                          </Typography>
+                          <Typography variant="caption" color="textSecondary">Address</Typography>
+                          <Typography variant="body2">{w.address || "No address provided"}</Typography>
                         </Box>
                       </Stack>
                     </CardContent>
@@ -567,12 +547,8 @@ export default function WholesalerRegistration() {
       {/* REGISTRATION DIALOG */}
       <Dialog open={open} onClose={() => !loading && setOpen(false)} fullWidth maxWidth="sm">
         <DialogTitle>
-          <Typography variant="h5" fontWeight="bold">
-            Wholesaler Registration
-          </Typography>
-          <Typography variant="body2" color="textSecondary">
-            Fill in the details to register as a wholesaler
-          </Typography>
+          <Typography variant="h5" fontWeight="bold">Wholesaler Registration</Typography>
+          <Typography variant="body2" color="textSecondary">Fill in the details to register as a wholesaler</Typography>
         </DialogTitle>
 
         <DialogContent>
@@ -623,11 +599,7 @@ export default function WholesalerRegistration() {
               InputProps={{
                 endAdornment: (
                   <InputAdornment position="end">
-                    <IconButton
-                      aria-label="toggle pin visibility"
-                      onClick={handleTogglePinVisibility}
-                      edge="end"
-                    >
+                    <IconButton onClick={handleTogglePinVisibility} edge="end">
                       {showPin ? "👁️" : "🔒"}
                     </IconButton>
                   </InputAdornment>
@@ -646,7 +618,6 @@ export default function WholesalerRegistration() {
               placeholder="Mumbai, Delhi, Bengaluru"
             />
 
-            {/* ✅ Added Pincode Field */}
             <TextField
               label="Pincode"
               name="pincode"
@@ -659,7 +630,6 @@ export default function WholesalerRegistration() {
               inputProps={{ maxLength: 6 }}
             />
 
-            {/* ✅ Added State Field */}
             <TextField
               label="State"
               name="state"
@@ -686,18 +656,8 @@ export default function WholesalerRegistration() {
         </DialogContent>
 
         <DialogActions sx={{ p: 2.5, pt: 0 }}>
-          <Button 
-            onClick={() => setOpen(false)} 
-            disabled={loading}
-            variant="outlined"
-          >
-            Cancel
-          </Button>
-          <Button 
-            variant="contained" 
-            onClick={handleRegister} 
-            disabled={loading}
-          >
+          <Button onClick={() => setOpen(false)} disabled={loading} variant="outlined">Cancel</Button>
+          <Button variant="contained" onClick={handleRegister} disabled={loading}>
             {loading ? "Registering..." : "Register Wholesaler"}
           </Button>
         </DialogActions>
@@ -706,12 +666,8 @@ export default function WholesalerRegistration() {
       {/* EDIT DIALOG */}
       <Dialog open={openEdit} onClose={() => !loading && setOpenEdit(false)} fullWidth maxWidth="sm">
         <DialogTitle>
-          <Typography variant="h5" fontWeight="bold">
-            Edit Wholesaler
-          </Typography>
-          <Typography variant="body2" color="textSecondary">
-            Update wholesaler information
-          </Typography>
+          <Typography variant="h5" fontWeight="bold">Edit Wholesaler</Typography>
+          <Typography variant="body2" color="textSecondary">Update wholesaler information</Typography>
         </DialogTitle>
 
         <DialogContent>
@@ -748,11 +704,20 @@ export default function WholesalerRegistration() {
             <TextField
               label="PIN"
               name="pin"
+              type={showPin ? "text" : "password"}
               value={editForm.pin}
               onChange={handleEditChange}
               fullWidth
-              required
-              helperText="Update PIN if needed"
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton onClick={handleTogglePinVisibility} edge="end">
+                      {showPin ? "👁️" : "🔒"}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+              helperText="Leave as is to keep current PIN, or enter new PIN (min 4 characters)"
             />
 
             <TextField
@@ -764,7 +729,6 @@ export default function WholesalerRegistration() {
               required
             />
 
-            {/* ✅ Added Pincode Field to Edit Dialog */}
             <TextField
               label="Pincode"
               name="pincode"
@@ -775,7 +739,6 @@ export default function WholesalerRegistration() {
               inputProps={{ maxLength: 6 }}
             />
 
-            {/* ✅ Added State Field to Edit Dialog */}
             <TextField
               label="State"
               name="state"
@@ -799,19 +762,8 @@ export default function WholesalerRegistration() {
         </DialogContent>
 
         <DialogActions sx={{ p: 2.5, pt: 0 }}>
-          <Button 
-            onClick={() => setOpenEdit(false)} 
-            disabled={loading}
-            variant="outlined"
-          >
-            Cancel
-          </Button>
-          <Button 
-            variant="contained" 
-            onClick={handleUpdate} 
-            disabled={loading}
-            color="primary"
-          >
+          <Button onClick={() => setOpenEdit(false)} disabled={loading} variant="outlined">Cancel</Button>
+          <Button variant="contained" onClick={handleUpdate} disabled={loading} color="primary">
             {loading ? "Updating..." : "Update Wholesaler"}
           </Button>
         </DialogActions>

@@ -36,6 +36,10 @@ import {
   Divider,
   Stack,
   Tooltip,
+  RadioGroup,
+  Radio,
+  FormControl,
+  FormLabel,
 } from '@mui/material';
 import { MdEdit, MdDelete, MdAdd, MdRemove, MdCloudUpload, MdInfo } from 'react-icons/md';
 import { getCategories } from 'src/services/categoryService';
@@ -70,7 +74,14 @@ const emptyCustomization = {
 
 const emptyMedia = { type: 'image', url: '' };
 const emptySpecification = { key: '', value: '' };
-const emptyOffer = { title: '', code: '', discountPercent: 0, active: true, expiryDate: '' };
+const emptyOffer = { 
+  title: '', 
+  code: '', 
+  discountPercent: 0, 
+  active: true, 
+  expiryDate: '',
+  wholesaleApplicable: false  // Added field
+};
 
 const redButtonStyle = {
   bgcolor: '#dc2626',
@@ -442,9 +453,10 @@ function SpecificationsBuilder({ specifications, setFieldValue }) {
   );
 }
 
-// ─── Offers Builder ─────────────────────────────────────────────────────────
+// ─── Offers Builder with Wholesale Applicability Radio Buttons ─────────────────────────────
 function OffersBuilder({ offers, setFieldValue, showSnackbar }) {
   const [bulkOfferText, setBulkOfferText] = useState('');
+  
   const add = () => setFieldValue('offers', [...offers, { ...emptyOffer }]);
   const remove = (i) => setFieldValue('offers', offers.filter((_, idx) => idx !== i));
   const update = (i, key, value) => {
@@ -455,7 +467,14 @@ function OffersBuilder({ offers, setFieldValue, showSnackbar }) {
   const handleBulkAdd = () => {
     if (!bulkOfferText.trim()) return showSnackbar('Please enter offers', 'warning');
     const offerTitles = bulkOfferText.split(',').map(item => item.trim()).filter(item => item);
-    const newOffers = offerTitles.map(title => ({ title, code: title.toLowerCase().replace(/[^a-z0-9]/g, '_').substring(0, 30), discountPercent: 0, active: true, expiryDate: '' }));
+    const newOffers = offerTitles.map(title => ({ 
+      title, 
+      code: title.toLowerCase().replace(/[^a-z0-9]/g, '_').substring(0, 30), 
+      discountPercent: 0, 
+      active: true, 
+      expiryDate: '',
+      wholesaleApplicable: false 
+    }));
     setFieldValue('offers', [...offers, ...newOffers]);
     setBulkOfferText('');
     showSnackbar(`Added ${newOffers.length} offers`);
@@ -477,13 +496,99 @@ function OffersBuilder({ offers, setFieldValue, showSnackbar }) {
       {offers.length === 0 && <Typography variant="body2" color="text.secondary" textAlign="center" py={3}>No offers added yet.</Typography>}
       {offers.map((offer, i) => (
         <Paper key={i} variant="outlined" sx={{ p: 2, mb: 2 }}>
-          <Box display="flex" justifyContent="space-between"><Typography variant="subtitle2" color="#dc2626">Offer #{i + 1}</Typography><IconButton size="small" onClick={() => remove(i)}><MdDelete /></IconButton></Box>
+          <Box display="flex" justifyContent="space-between">
+            <Typography variant="subtitle2" color="#dc2626">Offer #{i + 1}</Typography>
+            <IconButton size="small" onClick={() => remove(i)}><MdDelete /></IconButton>
+          </Box>
           <Grid container spacing={2}>
-            <Grid item xs={12}><TextField label="What's the Offer? *" fullWidth size="small" value={offer.title} onChange={(e) => update(i, 'title', e.target.value)} /></Grid>
-            <Grid item xs={6}><TextField label="Offer Code" fullWidth size="small" value={offer.code} onChange={(e) => update(i, 'code', e.target.value)} /></Grid>
-            <Grid item xs={6}><TextField label="Discount %" type="number" fullWidth size="small" value={offer.discountPercent} onChange={(e) => update(i, 'discountPercent', parseFloat(e.target.value) || 0)} inputProps={{ min: 0, max: 100 }} /></Grid>
-            <Grid item xs={12}><TextField label="Expiry Date" type="date" fullWidth size="small" InputLabelProps={{ shrink: true }} value={offer.expiryDate?.split('T')[0] || ''} onChange={(e) => update(i, 'expiryDate', e.target.value)} /></Grid>
-            <Grid item xs={12}><FormControlLabel control={<Switch checked={offer.active} onChange={(e) => update(i, 'active', e.target.checked)} color="error" />} label="Active" /></Grid>
+            <Grid item xs={12}>
+              <TextField 
+                label="What's the Offer? *" 
+                fullWidth 
+                size="small" 
+                value={offer.title} 
+                onChange={(e) => update(i, 'title', e.target.value)} 
+              />
+            </Grid>
+            <Grid item xs={6}>
+              <TextField 
+                label="Offer Code" 
+                fullWidth 
+                size="small" 
+                value={offer.code} 
+                onChange={(e) => update(i, 'code', e.target.value)} 
+              />
+            </Grid>
+            <Grid item xs={6}>
+              <TextField 
+                label="Discount %" 
+                type="number" 
+                fullWidth 
+                size="small" 
+                value={offer.discountPercent} 
+                onChange={(e) => update(i, 'discountPercent', parseFloat(e.target.value) || 0)} 
+                inputProps={{ min: 0, max: 100 }} 
+              />
+            </Grid>
+            
+            {/* ✅ Wholesale Applicability Radio Buttons */}
+            <Grid item xs={12}>
+              <FormControl component="fieldset" sx={{ mt: 1 }}>
+                <FormLabel component="legend" sx={{ fontSize: '0.875rem', fontWeight: 500, color: '#374151' }}>
+                  Applicable To
+                </FormLabel>
+                <RadioGroup
+                  row
+                  value={offer.wholesaleApplicable ? 'wholesale' : 'retail'}
+                  onChange={(e) => update(i, 'wholesaleApplicable', e.target.value === 'wholesale')}
+                >
+                  <FormControlLabel 
+                    value="retail" 
+                    control={<Radio sx={{ color: '#dc2626', '&.Mui-checked': { color: '#dc2626' } }} />} 
+                    label={
+                      <Box>
+                        <Typography variant="body2" fontWeight={500}>🏪 Retail Only</Typography>
+                        <Typography variant="caption" color="text.secondary">Offer applies only to retail/MRP price</Typography>
+                      </Box>
+                    } 
+                  />
+                  <FormControlLabel 
+                    value="wholesale" 
+                    control={<Radio sx={{ color: '#dc2626', '&.Mui-checked': { color: '#dc2626' } }} />} 
+                    label={
+                      <Box>
+                        <Typography variant="body2" fontWeight={500}>📦 Wholesale Applicable</Typography>
+                        <Typography variant="caption" color="text.secondary">Offer applies to wholesale prices too</Typography>
+                      </Box>
+                    } 
+                  />
+                </RadioGroup>
+              </FormControl>
+            </Grid>
+
+            <Grid item xs={12}>
+              <TextField 
+                label="Expiry Date" 
+                type="date" 
+                fullWidth 
+                size="small" 
+                InputLabelProps={{ shrink: true }} 
+                value={offer.expiryDate?.split('T')[0] || ''} 
+                onChange={(e) => update(i, 'expiryDate', e.target.value)} 
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <FormControlLabel 
+                control={
+                  <Switch 
+                    checked={offer.active} 
+                    onChange={(e) => update(i, 'active', e.target.checked)} 
+                    color="error" 
+                  />
+                } 
+                label="Active" 
+              />
+            </Grid>
           </Grid>
         </Paper>
       ))}
@@ -635,7 +740,7 @@ export default function ProductData() {
         specifications: values.specifications,
         tags: values.tags,
         superTags: values.superTags,
-        offers: values.offers,
+        offers: values.offers, // Now includes wholesaleApplicable field
         more_details: values.more_details,
         wholesalerPrices: formattedWholesalerPrices,
         wholeSalerDefault: parseFloat(values.wholeSalerDefault) || 0,
@@ -687,7 +792,10 @@ export default function ProductData() {
     specifications: editingProduct?.specifications || [],
     tags: editingProduct?.tags || [],
     superTags: editingProduct?.superTags || [],
-    offers: editingProduct?.offers || [],
+    offers: (editingProduct?.offers || []).map(offer => ({
+      ...offer,
+      wholesaleApplicable: offer.wholesaleApplicable ?? false
+    })),
     wholesalerPrices: (editingProduct?.wholesalerPrices || []).map(wp => ({
       wholesalerId: wp.wholesalerId?._id || wp.wholesalerId,
       wholesalePrice: wp.wholesalePrice
@@ -921,7 +1029,7 @@ export default function ProductData() {
                 {/* Customizations */}
                 <CustomizationBuilder customizations={values.customizations} setFieldValue={setFieldValue} />
 
-                {/* Offers */}
+                {/* Offers - Updated with wholesaleApplicable */}
                 <OffersBuilder offers={values.offers} setFieldValue={setFieldValue} showSnackbar={showSnackbar} />
               </Grid>
 
